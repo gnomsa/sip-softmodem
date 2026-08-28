@@ -1,5 +1,22 @@
 #include "v32bis_map.h"
 #include <float.h>
+static const struct v32bis_point map7200[16]={
+{3,-3},{-1,1},{-3,3},{1,-1},{3,1},{-1,-3},{-3,-1},{1,3},
+{-1,3},{3,-1},{1,-3},{-3,1},{-3,-3},{1,1},{3,3},{-1,-1}};
+static const struct v32bis_point map9600[32]={
+{-4,1},{0,-3},{0,1},{4,1},{4,-1},{0,3},{0,-1},{-4,-1},
+{-2,3},{-2,-1},{2,3},{2,-1},{2,-3},{2,1},{-2,-3},{-2,1},
+{-3,-2},{1,-2},{-3,2},{1,2},{3,2},{-1,2},{3,-2},{-1,-2},
+{1,4},{-3,0},{1,0},{1,-4},{-1,-4},{3,0},{-1,0},{-1,4}};
+static const struct v32bis_point map12000[64]={
+{7,1},{3,5},{7,-7},{-5,5},{3,-3},{-1,1},{-1,-7},{-5,-3},
+{-7,-1},{-3,-5},{-7,7},{5,-5},{-3,3},{1,-1},{1,7},{5,3},
+{-1,5},{-5,1},{7,5},{-5,-7},{3,1},{-1,-3},{7,-3},{3,-7},
+{1,-5},{5,-1},{-7,-5},{5,7},{-3,-1},{1,3},{-7,3},{-3,7},
+{-5,-1},{-1,-5},{-5,7},{7,-5},{-1,3},{3,-1},{3,7},{7,3},
+{5,1},{1,5},{5,-7},{-7,5},{1,-3},{-3,1},{-3,-7},{-7,-3},
+{1,-7},{5,-3},{-7,-7},{5,5},{-3,-3},{1,1},{-7,1},{-3,5},
+{-1,7},{-5,3},{7,7},{-5,-5},{3,3},{-1,-1},{7,-1},{3,-5}};
 static const struct v32bis_point map14400[128]={
 {-8,-1},{8,-1},{4,-1},{4,-5},{-4,-1},{-4,-5},{0,-1},{0,-5},{-8,3},{8,3},{4,3},{4,7},{-4,3},{-4,7},{0,3},{0,7},
 {8,5},{-8,5},{-4,5},{-4,9},{4,5},{4,9},{0,5},{0,9},{8,1},{-8,1},{-4,1},{-4,-3},{4,1},{4,-3},{0,1},{0,-3},
@@ -9,5 +26,6 @@ static const struct v32bis_point map14400[128]={
 {-9,0},{7,0},{3,0},{3,-4},{-5,0},{-5,-4},{-1,0},{-1,-4},{-9,4},{7,4},{3,4},{3,8},{-5,4},{-5,8},{-1,4},{-1,8},
 {-3,10},{-3,-6},{-3,-2},{-7,-2},{-3,6},{-7,6},{-3,2},{-7,2},{1,10},{1,-6},{1,-2},{5,-2},{1,6},{5,6},{1,2},{5,2},
 {3,-6},{3,10},{3,6},{7,6},{3,-2},{7,-2},{3,2},{7,2},{-1,-6},{-1,10},{-1,6},{-5,6},{-1,-2},{-5,-2},{-1,2},{-5,2}};
-int v32bis_map_point(int rate,unsigned label,struct v32bis_point*p){if(rate!=14400||label>=128||!p)return-1;*p=map14400[label];return 0;}
-int v32bis_map_nearest(int rate,double i,double q,unsigned*label,double*d2){if(rate!=14400)return-1;double best=DBL_MAX;unsigned which=0;for(unsigned n=0;n<128;n++){double di=i-map14400[n].i,dq=q-map14400[n].q,v=di*di+dq*dq;if(v<best){best=v;which=n;}}if(label)*label=which;if(d2)*d2=best;return 0;}
+static const struct v32bis_point*table(int rate,unsigned*count){switch(rate){case 7200:*count=16;return map7200;case 9600:*count=32;return map9600;case 12000:*count=64;return map12000;case 14400:*count=128;return map14400;default:*count=0;return 0;}}
+int v32bis_map_point(int rate,unsigned label,struct v32bis_point*p){unsigned n;const struct v32bis_point*t=table(rate,&n);if(!t||label>=n||!p)return-1;*p=t[label];return 0;}
+int v32bis_map_nearest(int rate,double i,double q,unsigned*label,double*d2){unsigned count;const struct v32bis_point*t=table(rate,&count);if(!t)return-1;double best=DBL_MAX;unsigned which=0;for(unsigned n=0;n<count;n++){double di=i-t[n].i,dq=q-t[n].q,v=di*di+dq*dq;if(v<best){best=v;which=n;}}if(label)*label=which;if(d2)*d2=best;return 0;}
