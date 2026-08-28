@@ -1,0 +1,4 @@
+#include "v42_link.h"
+#include <assert.h>
+#include <stdio.h>
+int main(void){struct v42_link a,b;uint8_t bits[V42_HDLC_MAX_BITS];v42_link_init(&a,1);v42_link_init(&b,0);assert(a.state==V42_LINK_AWAIT_UA&&b.state==V42_LINK_DISCONNECTED);assert(v42_link_next(&a,bits,sizeof bits)>0);v42_link_advance(&a,1000);size_t n=v42_link_next(&a,bits,sizeof bits);assert(n&&a.retries==1);assert(v42_link_receive(&b,bits,n)==1&&b.state==V42_LINK_CONNECTED);n=v42_link_next(&b,bits,sizeof bits);assert(n&&v42_link_receive(&a,bits,n)==1&&a.state==V42_LINK_CONNECTED);v42_link_disconnect(&a);n=v42_link_next(&a,bits,sizeof bits);assert(n&&v42_link_receive(&b,bits,n)==0&&b.state==V42_LINK_DISCONNECTED);n=v42_link_next(&b,bits,sizeof bits);assert(n&&v42_link_receive(&a,bits,n)==0&&a.state==V42_LINK_DISCONNECTED);puts("V.42 LAPM link: lost SABME retry, UA establishment and DISC pass");return 0;}

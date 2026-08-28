@@ -58,7 +58,10 @@ source code, binaries or VM images from other modem projects.
 - an eight-frame LAPM ARQ window implements cumulative RR acknowledgement,
   RNR signalling and REJ retransmission; deterministic tests corrupt a middle
   frame, recover the exact ordered stream, and exercise sequence wrap 127 to 0
-  (timers and live data-path integration are still pending)
+  as well as T401 recovery when the final I frame or its RR is lost
+- the LAPM link controller establishes with SABME/UA, retries a lost SABME on
+  T401, and performs orderly DISC/UA release (live data-path integration and
+  XID parameter negotiation are still pending)
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
