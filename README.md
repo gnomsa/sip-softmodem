@@ -162,6 +162,8 @@ make integration-test
 make integration-v34-test
 # Longer live matrix covering every V.34 rate:
 make integration-v34-all-test
+# Timed 4096-byte V.34 payload:
+make integration-v34-throughput-test
 ```
 
 Run in the foreground:
@@ -258,6 +260,12 @@ payload through two local SIP/RTP processes.
 `make integration-v34-all-test` repeats that test at every 2400-bit/s step from
 2400 through 33600. The loss-free local matrix currently reaches the requested
 `CONNECT` rate and transfers the exact payload at all fourteen rates.
+`make integration-v34-throughput-test` transfers 4096 deterministic binary
+bytes after `CONNECT 33600`, checks every byte and reports measured PTY payload
+throughput independently of the negotiated raw line rate. A representative
+loss-free localhost run measured about 2505 payload bytes/s (20.0 kbit/s), or
+74.5% of the 3360 bytes/s 8N1 ceiling; this includes superframe fill and drain
+latency over the finite 4096-byte measurement.
 The deterministic V.42-over-V.32bis test currently transfers 1000 exact bytes
 at about 400, 481, 562 and 610 application bytes/s on 7200, 9600, 12000 and
 14400-bit/s lines. This includes LAPM and continuous HDLC idle traffic.
