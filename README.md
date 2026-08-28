@@ -86,6 +86,8 @@ source code, binaries or VM images from other modem projects.
   mark bits while idle, and reconstructs bytes from the primary-channel bits
 - trellis-aware soft candidate search repairs hard QAM decisions before shell
   decoding; the PCMA test now carries arbitrary 8N1 byte patterns end to end
+- a byte-oriented V.34 data channel automatically rotates superframes and
+  exposes packet-sized PCMA generation/reception plus PTY-style reads/writes
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full timing recovery, adaptive
