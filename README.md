@@ -88,6 +88,9 @@ source code, binaries or VM images from other modem projects.
   decoding; the PCMA test now carries arbitrary 8N1 byte patterns end to end
 - a byte-oriented V.34 data channel automatically rotates superframes and
   exposes packet-sized PCMA generation/reception plus PTY-style reads/writes
+- a duplex B1/data link runs caller and answerer B1 concurrently, queues bytes
+  written during training, and switches both RTP directions to data packets
+  after the two B1 receivers confirm their state
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full timing recovery, adaptive
