@@ -69,6 +69,40 @@ int main(void)
         invalid.preemphasis = 11;
         assert(!v34_info1a_encode(&invalid, a));
     }
+
+    {
+        v34_info1c in = {0}, out;
+        unsigned i;
+        in.minimum_power_reduction = 4;
+        in.additional_power_reduction = 1;
+        in.md_length_35ms = 63;
+        in.frequency_offset_002hz = 511;
+        for (i = 0; i < 6u; ++i) {
+            in.symbol[i].high_carrier = (i & 1u) != 0;
+            in.symbol[i].preemphasis = (uint8_t)(i + 2u);
+            in.symbol[i].projected_rate_2400 = (uint8_t)(9u + i);
+        }
+        memset(c, 0, sizeof(c));
+        assert(v34_info1c_encode(&in, c));
+        assert(v34_info1c_decode(c, &out));
+        assert(out.minimum_power_reduction == 4);
+        assert(out.additional_power_reduction == 1);
+        assert(out.md_length_35ms == 63);
+        assert(out.frequency_offset_002hz == 511);
+        for (i = 0; i < 6u; ++i) {
+            assert(out.symbol[i].high_carrier == ((i & 1u) != 0));
+            assert(out.symbol[i].preemphasis == i + 2u);
+            assert(out.symbol[i].projected_rate_2400 == i + 9u);
+        }
+        c[8] ^= 0x08u;
+        assert(!v34_info1c_decode(c, &out));
+    }
+
+    {
+        v34_info1c invalid = {0};
+        invalid.symbol[5].projected_rate_2400 = 15;
+        assert(!v34_info1c_encode(&invalid, c));
+    }
     puts("v34 INFO1 framing tests: ok");
     return 0;
 }

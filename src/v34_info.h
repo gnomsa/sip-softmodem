@@ -47,6 +47,20 @@ typedef struct {
     int16_t frequency_offset_002hz;
 } v34_info1a;
 
+typedef struct {
+    bool high_carrier;
+    uint8_t preemphasis;
+    uint8_t projected_rate_2400;
+} v34_probe_result;
+
+typedef struct {
+    uint8_t minimum_power_reduction;
+    uint8_t additional_power_reduction;
+    uint8_t md_length_35ms;
+    v34_probe_result symbol[6];
+    int16_t frequency_offset_002hz;
+} v34_info1c;
+
 uint16_t v34_info_crc(const uint8_t *bits, size_t count);
 bool v34_info_frame_check(const uint8_t *frame, size_t bit_count,
                           unsigned crc_first, unsigned crc_bits);
@@ -58,5 +72,9 @@ bool v34_info1a_encode(const v34_info1a *info,
                        uint8_t frame[V34_INFO1A_BYTES]);
 bool v34_info1a_decode(const uint8_t frame[V34_INFO1A_BYTES],
                        v34_info1a *info);
+bool v34_info1c_encode(const v34_info1c *info,
+                       uint8_t frame[V34_INFO1C_BYTES]);
+bool v34_info1c_decode(const uint8_t frame[V34_INFO1C_BYTES],
+                       v34_info1c *info);
 
 #endif
