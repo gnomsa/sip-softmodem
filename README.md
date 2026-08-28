@@ -31,6 +31,8 @@ source code, binaries or VM images from other modem projects.
   envelope modulation and 450 ms phase reversals
 - standard V.32 GPC/GPA scramblers, differential coding, R/E rate words and
   exact 256 S + 16 S-bar + 1280 TRN symbol generation (not live yet)
+- standard V.32 1800 Hz/2400-baud A/B/C/D line transport and bidirectional
+  4800-bit/s data path; deterministic PCMA tests currently report zero errors
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
