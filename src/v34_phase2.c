@@ -1,6 +1,8 @@
 #include "v34_phase2.h"
 
 #include <stddef.h>
+#include <math.h>
+#include <string.h>
 
 bool v34_phase2_select(const v34_info1c *probe,
                        uint8_t allowed_symbols,
@@ -125,5 +127,76 @@ bool v34_phase2_make_info1a(const v34_phase2_duplex *duplex,
     info->answer_symbol_rate = (uint8_t)duplex->answer_to_call.symbol_rate;
     info->call_symbol_rate = (uint8_t)duplex->call_to_answer.symbol_rate;
     info->frequency_offset_002hz = frequency_offset_002hz;
+    return true;
+}
+
+static unsigned projected_rate(uint16_t rates, unsigned maximum,
+                               unsigned penalty)
+{
+    unsigned rate = v34_highest_rate(rates & v34_rates_up_to(maximum));
+    while (rate != 0u && penalty-- != 0u) {
+        rates &= (uint16_t)~V34_RATE_BIT(rate / V34_RATE_STEP - 1u);
+        rate = v34_highest_rate(rates & v34_rates_up_to(maximum));
+    }
+    return rate;
+}
+
+bool v34_phase2_make_info1c(const v34_probe_rx *probe,
+                            uint8_t allowed_symbols,
+                            uint16_t allowed_rates,
+                            unsigned maximum_rate,
+                            v34_info1c *info)
+{
+    static const unsigned symbol_ceiling[V34_SYMBOL_COUNT] = {
+        21600u, 26400u, 26400u, 28800u, 31200u, 33600u
+    };
+    double average = 0.0, minimum = 0.0;
+    double low = 0.0, high = 0.0, tilt_db;
+    unsigned tone, symbol, penalty, preemphasis;
+
+    if (probe == NULL || info == NULL || !v34_probe_rx_ready(probe))
+        return false;
+    for (tone = 0; tone < V34_PROBE_TONES; ++tone) {
+        double amplitude = v34_probe_rx_amplitude(probe, tone);
+        average += amplitude;
+        if (tone == 0u || amplitude < minimum)
+            minimum = amplitude;
+        if (v34_probe_frequency[tone] <= 1650u)
+            low += amplitude;
+        else
+            high += amplitude;
+    }
+    average /= V34_PROBE_TONES;
+    low /= 9.0;
+    high /= 12.0;
+    if (average < 100.0 || low < 1.0 || high < 1.0)
+        return false;
+
+    if (minimum / average >= 0.75)
+        penalty = 0u;
+    else if (minimum / average >= 0.60)
+        penalty = 1u;
+    else if (minimum / average >= 0.45)
+        penalty = 2u;
+    else
+        penalty = 3u;
+    tilt_db = 20.0 * log10(low / high);
+    preemphasis = tilt_db <= 0.0 ? 0u : (unsigned)ceil(tilt_db / 1.5);
+    if (preemphasis > 10u)
+        preemphasis = 10u;
+
+    memset(info, 0, sizeof(*info));
+    for (symbol = 0; symbol < V34_SYMBOL_COUNT; ++symbol) {
+        unsigned ceiling, rate;
+        if ((allowed_symbols & V34_SYMBOL_BIT(symbol)) == 0u)
+            continue;
+        ceiling = symbol_ceiling[symbol] < maximum_rate ?
+                  symbol_ceiling[symbol] : maximum_rate;
+        rate = projected_rate(allowed_rates, ceiling, penalty);
+        info->symbol[symbol].projected_rate_2400 =
+            (uint8_t)(rate / V34_RATE_STEP);
+        info->symbol[symbol].preemphasis = (uint8_t)preemphasis;
+        info->symbol[symbol].high_carrier = high > low * 1.10;
+    }
     return true;
 }

@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 int main(void)
 {
@@ -58,6 +59,33 @@ int main(void)
         assert(!v34_phase2_select_duplex(&probe, &reverse,
                                          V34_SYMBOL_ALL_MASK,
                                          V34_RATE_ALL_MASK, 33600, 6, &duplex));
+    }
+    {
+        v34_probe_rx measured;
+        v34_info1c report;
+        unsigned i;
+        memset(&measured, 0, sizeof(measured));
+        measured.ready = true;
+        for (i = 0; i < V34_PROBE_TONES; ++i)
+            measured.amplitude[i] = 1200.0;
+        assert(v34_phase2_make_info1c(&measured, V34_SYMBOL_ALL_MASK,
+                                      V34_RATE_ALL_MASK, 33600, &report));
+        assert(report.symbol[V34_SYMBOL_2400].projected_rate_2400 == 9u);
+        assert(report.symbol[V34_SYMBOL_2743].projected_rate_2400 == 11u);
+        assert(report.symbol[V34_SYMBOL_3000].projected_rate_2400 == 12u);
+        assert(report.symbol[V34_SYMBOL_3200].projected_rate_2400 == 13u);
+        assert(report.symbol[V34_SYMBOL_3429].projected_rate_2400 == 14u);
+        assert(report.symbol[V34_SYMBOL_3429].preemphasis == 0u);
+
+        for (i = 0; i < V34_PROBE_TONES; ++i) {
+            if (v34_probe_frequency[i] >= 1950u)
+                measured.amplitude[i] = 600.0;
+        }
+        assert(v34_phase2_make_info1c(&measured, V34_SYMBOL_MANDATORY_MASK,
+                                      V34_RATE_ALL_MASK, 33600, &report));
+        assert(report.symbol[V34_SYMBOL_3429].projected_rate_2400 == 0u);
+        assert(report.symbol[V34_SYMBOL_3200].projected_rate_2400 == 12u);
+        assert(report.symbol[V34_SYMBOL_3200].preemphasis > 0u);
     }
     puts("v34 Phase 2 mode selection tests: ok");
     return 0;

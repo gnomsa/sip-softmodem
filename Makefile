@@ -247,7 +247,7 @@ tests/test_v34_info1: tests/test_v34_info1.c src/v34_info.c
 tests/test_v34_info_modem: tests/test_v34_info_modem.c src/v34_info_modem.c src/v34_info.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
-tests/test_v34_phase2: tests/test_v34_phase2.c src/v34_phase2.c src/v34_caps.c
+tests/test_v34_phase2: tests/test_v34_phase2.c src/v34_phase2.c src/v34_caps.c src/v34_probe.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
 tests/test_v34_phase2_tone: tests/test_v34_phase2_tone.c src/v34_phase2_tone.c src/v34_info_modem.c src/pcma.c

@@ -91,6 +91,9 @@ source code, binaries or VM images from other modem projects.
 - an autonomous spectral detector rejects A/B carrier and guard tones, finds
   an L1/L2 onset without packet-boundary hints, captures a full 160 ms window,
   and classifies the probe from its measured per-tone level
+- the measured probe is converted into all six INFO1c projection entries;
+  symbol-rate ceilings and configured rate masks are enforced, while spectral
+  notches reduce the projection and high-frequency loss selects pre-emphasis
 - normative Phase 3 S/S-bar, PP and four-point TRN symbol generation, including
   the separate call and answer scramblers, plus a PCMA training transmitter
 - Phase 4 J-prime/TRN/MP/MP-prime/E plans and a PCMA MP Type 0 receiver

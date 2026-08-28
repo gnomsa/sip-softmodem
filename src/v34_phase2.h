@@ -3,6 +3,7 @@
 
 #include "v34_caps.h"
 #include "v34_info.h"
+#include "v34_probe.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -38,5 +39,10 @@ bool v34_phase2_make_info1a(const v34_phase2_duplex *duplex,
                             uint8_t md_length_35ms,
                             int16_t frequency_offset_002hz,
                             v34_info1a *info);
+bool v34_phase2_make_info1c(const v34_probe_rx *probe,
+                            uint8_t allowed_symbols,
+                            uint16_t allowed_rates,
+                            unsigned maximum_rate,
+                            v34_info1c *info);
 
 #endif
