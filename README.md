@@ -53,6 +53,9 @@ source code, binaries or VM images from other modem projects.
 - initial V.42 LAPM/HDLC primitives implement the 16-bit FCS, LSB-first flags,
   zero insertion/removal after five contiguous one bits, and rejection of
   corrupted frames (not connected to the live data path yet)
+- LAPM modulo-128 control fields encode and decode I, RR, RNR, REJ and SREJ
+  frames with DLCI 0, C/R, N(S), N(R) and P/F fields (ARQ state machine not
+  connected to the live data path yet)
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
