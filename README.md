@@ -26,14 +26,16 @@ source code, binaries or VM images from other modem projects.
 - incoming caller identity is reported as `+CLIP: "..."` alongside `RING`
 - V.25 answer-tone detection and a V.22bis start-up state machine with 2400
   selection and 1200 fallback
+- V.8 CM/JM/CJ framing, capability intersection and V.21(L/H) FSK transport;
+  these components are tested but not yet enabled in the live call path
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
 adaptive equalisation, all SIP transaction timers, RTCP, TCP SIP or V.34.
 The 4800/9600 implementation is a clean-room laboratory waveform between two
 instances of this program. It is not yet an interoperable ITU-T V.32 modem:
-trellis coding, echo cancellation, adaptive equalisation and V.8 negotiation
-remain to be implemented.
+trellis coding, echo cancellation and adaptive equalisation remain to be
+implemented. V.8 still needs ANSam and end-to-end fallback validation.
 
 ## Build and test
 
@@ -106,8 +108,9 @@ exact IPv4 match, not a replacement for a firewall on an untrusted network.
 `ALL` currently chooses 2400. Setting the maximum to 1200 or 300 selects a
 lower mode. `EXPERIMENTAL_QAM` explicitly enables the private 4800/9600
 loopback waveform; it is deliberately not named V.32 and is never selected by
-`ALL`. V.22bis now performs its in-band 2400/1200 selection. Selection between
-modem families (V.8 automode) is not implemented yet.
+`ALL`. V.22bis now performs its in-band 2400/1200 selection. The V.8 codec,
+FSK transport and logical automode state machine exist, but family selection
+remains disabled until ANSam detection and end-to-end fallback are complete.
 
 ## Measured loopback status
 
