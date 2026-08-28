@@ -80,6 +80,8 @@ source code, binaries or VM images from other modem projects.
 - autonomous B1 carrier acquisition followed by a decision-directed data
   receiver; a 33600-bit/s laboratory test restores all 9408 superframe bits
   from fourteen 20 ms PCMA blocks despite injected phase and frequency offsets
+- continuous V.34 data superframes retain carrier, symbol clock, scrambler,
+  differential and trellis state without repeating B1
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full timing recovery, adaptive

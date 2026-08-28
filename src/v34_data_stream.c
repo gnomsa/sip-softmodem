@@ -99,6 +99,35 @@ bool v34_data_stream_init_after_b1(v34_data_stream *stream,
            prepare_interval(stream);
 }
 
+bool v34_data_stream_next_superframe(v34_data_stream *stream,
+                                     const uint8_t *input_bits,
+                                     size_t input_count)
+{
+    size_t expected;
+    size_t bit;
+
+    if (!stream || !input_bits || !stream->complete)
+        return false;
+    expected = (size_t)stream->geometry.bits_per_data_frame *
+               stream->geometry.data_frames_per_superframe;
+    if (input_count != expected || input_count > V34_MAX_SUPERFRAME_BITS)
+        return false;
+    for (bit = 0; bit < input_count; ++bit)
+        if (input_bits[bit] > 1u)
+            return false;
+
+    stream->input_count = input_count;
+    stream->input_offset = 0;
+    stream->data_frame = 0;
+    stream->mapping_frame = 0;
+    stream->interval_4d = 0;
+    stream->symbol_in_4d = 0;
+    stream->complete = false;
+    memcpy(stream->input_bits, input_bits, input_count);
+    return build_data_frame(stream) && prepare_mapping_frame(stream) &&
+           prepare_interval(stream);
+}
+
 static bool advance_symbol(v34_data_stream *stream)
 {
     if (stream->symbol_in_4d == 0u) {

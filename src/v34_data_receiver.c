@@ -57,6 +57,20 @@ bool v34_data_receiver_init_after_b1(v34_data_receiver *receiver,
     return true;
 }
 
+bool v34_data_receiver_next_superframe(v34_data_receiver *receiver)
+{
+    if (!v34_data_receiver_complete(receiver) ||
+        receiver->read_offset != receiver->output_count)
+        return false;
+    receiver->output_count = 0;
+    receiver->read_offset = 0;
+    receiver->data_frame = 0;
+    receiver->mapping_frame = 0;
+    receiver->received_symbol = 0;
+    receiver->complete = false;
+    return true;
+}
+
 static bool feed_sample(v34_data_receiver *receiver, uint8_t pcma)
 {
     double in_phase;

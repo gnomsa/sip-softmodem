@@ -103,6 +103,8 @@ static void correct_known_symbol(v34_b1_receiver *receiver,
     double sine = sin(phase);
     double corrected_i = *in_phase * cosine + *quadrature * sine;
     double corrected_q = *quadrature * cosine - *in_phase * sine;
+    double weight = (double)expected.re * expected.re +
+                    (double)expected.im * expected.im;
     double symbol_end = (double)receiver->rx.clock.samples;
     double symbol_center =
         ((double)receiver->previous_symbol_end + symbol_end - 1.0) / 2.0;
@@ -119,10 +121,12 @@ static void correct_known_symbol(v34_b1_receiver *receiver,
         receiver->phase_unwrapped += change;
     }
     receiver->phase_previous = phase;
-    receiver->phase_sum_x += symbol_center;
-    receiver->phase_sum_y += receiver->phase_unwrapped;
-    receiver->phase_sum_xx += symbol_center * symbol_center;
-    receiver->phase_sum_xy += symbol_center * receiver->phase_unwrapped;
+    receiver->phase_sum_x += weight * symbol_center;
+    receiver->phase_sum_y += weight * receiver->phase_unwrapped;
+    receiver->phase_sum_xx += weight * symbol_center * symbol_center;
+    receiver->phase_sum_xy +=
+        weight * symbol_center * receiver->phase_unwrapped;
+    receiver->phase_weight += weight;
     receiver->phase_samples++;
     receiver->previous_symbol_end = receiver->rx.clock.samples;
     *in_phase = corrected_i;
@@ -131,7 +135,7 @@ static void correct_known_symbol(v34_b1_receiver *receiver,
 
 static void finish_carrier_estimate(v34_b1_receiver *receiver)
 {
-    double count = (double)receiver->phase_samples;
+    double weight = receiver->phase_weight;
     double denominator;
     double frequency_error = 0.0;
     double phase_intercept;
@@ -139,15 +143,15 @@ static void finish_carrier_estimate(v34_b1_receiver *receiver)
 
     if (!receiver->have_phase)
         return;
-    denominator = count * receiver->phase_sum_xx -
+    denominator = weight * receiver->phase_sum_xx -
                   receiver->phase_sum_x * receiver->phase_sum_x;
     if (receiver->phase_samples > 1u && denominator > 0.0)
         frequency_error =
-            (count * receiver->phase_sum_xy -
+            (weight * receiver->phase_sum_xy -
              receiver->phase_sum_x * receiver->phase_sum_y) / denominator;
     phase_intercept =
         (receiver->phase_sum_y - frequency_error * receiver->phase_sum_x) /
-        count;
+        weight;
     phase_at_boundary = phase_intercept +
         frequency_error * (double)receiver->rx.clock.samples;
     /* PCMA quantisation and the short rectangular symbol integrator leave a

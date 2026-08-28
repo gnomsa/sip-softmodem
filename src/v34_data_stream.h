@@ -33,6 +33,9 @@ bool v34_data_stream_init_after_b1(v34_data_stream *stream,
                                    const v34_b1_stream *b1,
                                    const uint8_t *input_bits,
                                    size_t input_count);
+bool v34_data_stream_next_superframe(v34_data_stream *stream,
+                                     const uint8_t *input_bits,
+                                     size_t input_count);
 size_t v34_data_stream_generate(v34_data_stream *stream,
                                 uint8_t *pcma,
                                 size_t count);

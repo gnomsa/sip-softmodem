@@ -94,11 +94,10 @@ void v34_training_rx_track_carrier(v34_training_rx *rx,
     if (error < -0.15)
         error = -0.15;
 
-    /* A second-order decision-directed loop.  The phase arm removes the
-     * current error; the slow frequency arm follows oscillator drift without
-     * chasing individual PCMA quantisation errors. */
-    rx->carrier_phase += 0.20 * error;
-    rx->carrier_step += 4e-5 * error;
+    /* B1 supplies the frequency estimate.  Data decisions only close a narrow
+     * residual phase loop: integrating hard QAM decisions into frequency can
+     * create a false 180-degree lock on long PCMA streams. */
+    rx->carrier_phase += 0.02 * error;
     rx->carrier_phase = fmod(rx->carrier_phase, 2.0 * M_PI);
     if (rx->carrier_phase < 0.0)
         rx->carrier_phase += 2.0 * M_PI;

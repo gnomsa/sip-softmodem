@@ -23,6 +23,7 @@ typedef struct {
 
 bool v34_data_receiver_init_after_b1(v34_data_receiver *receiver,
                                      const v34_b1_receiver *b1);
+bool v34_data_receiver_next_superframe(v34_data_receiver *receiver);
 bool v34_data_receiver_feed(v34_data_receiver *receiver,
                             const uint8_t *pcma, size_t count);
 size_t v34_data_receiver_read(v34_data_receiver *receiver,
