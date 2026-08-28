@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
@@ -25,12 +26,14 @@ static volatile sig_atomic_t stopping;
 static void on_signal(int sig) { (void)sig; stopping=1; }
 
 struct config {
-    const char *bind_ip,*public_ip,*allowed_ip,*tty_path,*user_agent,*sdp_origin,*sdp_name,*outbound_host;
-    uint16_t sip_port,rtp_port,outbound_port; int speed;
+    const char *bind_ip,*public_ip,*allowed_ip,*tty_path,*user_agent,*sdp_origin,*sdp_name,*outbound_host,*protocols;
+    uint16_t sip_port,rtp_port,outbound_port; int speed,max_rate;
 };
 static const char *env_or(const char *name,const char *fallback) { const char *v=getenv(name); return v&&*v?v:fallback; }
 static uint16_t env_port(const char *name,uint16_t fallback) { long v=strtol(env_or(name,"0"),NULL,10); return v>0&&v<65536?(uint16_t)v:fallback; }
 static int safe_text(const char *s) { return s && !strpbrk(s,"\r\n"); }
+static int token_enabled(const char*list,const char*name){if(!strcasecmp(list,"ALL"))return 1;char copy[256];snprintf(copy,sizeof copy,"%s",list);char*save=NULL;for(char*p=strtok_r(copy,",",&save);p;p=strtok_r(NULL,",",&save)){while(*p==' ')p++;if(!strcasecmp(p,name))return 1;}return 0;}
+static int select_speed(const char*protocols,int max_rate){if(token_enabled(protocols,"V22")&&max_rate>=1200)return 1200;if(token_enabled(protocols,"V21")&&max_rate>=300)return 300;return 0;}
 static uint64_t now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC,&t); return (uint64_t)t.tv_sec*1000+t.tv_nsec/1000000; }
 static int udp_bind(const char *ip,uint16_t port) {
     int fd=socket(AF_INET,SOCK_DGRAM,0); if(fd<0)return -1; int one=1; setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,&one,sizeof one);
@@ -54,9 +57,10 @@ int main(void) {
         .user_agent=env_or("SOFTMODEM_USER_AGENT","SIP-Softmodem/0.1"), .sdp_origin=env_or("SOFTMODEM_SDP_ORIGIN","softmodem"),
         .sdp_name=env_or("SOFTMODEM_SDP_NAME","SIP Softmodem"), .sip_port=env_port("SOFTMODEM_SIP_PORT",5060),
         .rtp_port=env_port("SOFTMODEM_RTP_PORT",10000), .outbound_host=env_or("SOFTMODEM_OUTBOUND_HOST",""),
-        .outbound_port=env_port("SOFTMODEM_OUTBOUND_PORT",5060), .speed=atoi(env_or("SOFTMODEM_SPEED","1200"))};
+        .outbound_port=env_port("SOFTMODEM_OUTBOUND_PORT",5060), .protocols=env_or("SOFTMODEM_PROTOCOLS","ALL"),
+        .max_rate=atoi(env_or("SOFTMODEM_MAX_RATE","33600")), .speed=0};
     if(!safe_text(c.user_agent)||!safe_text(c.sdp_origin)||!safe_text(c.sdp_name)){fprintf(stderr,"invalid CR/LF in identity setting\n");return 2;}
-    if(c.speed!=300&&c.speed!=1200){fprintf(stderr,"SOFTMODEM_SPEED must be 300 or 1200\n");return 2;}
+    c.speed=select_speed(c.protocols,c.max_rate);if(!c.speed){fprintf(stderr,"no implemented protocol enabled (this build: V21,V22)\n");return 2;}
     int sip_fd=udp_bind(c.bind_ip,c.sip_port),rtp_fd=udp_bind(c.bind_ip,c.rtp_port); char slave[256]; int pty_fd=pty_open_link(c.tty_path,slave,sizeof slave);
     if(sip_fd<0||rtp_fd<0||pty_fd<0){perror("startup");return 1;} fcntl(pty_fd,F_SETFL,fcntl(pty_fd,F_GETFL)|O_NONBLOCK);
     signal(SIGINT,on_signal);signal(SIGTERM,on_signal); srand((unsigned)(time(NULL)^getpid()));

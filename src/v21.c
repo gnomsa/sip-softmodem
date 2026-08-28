@@ -7,7 +7,8 @@
 #endif
 #define QMASK 4095u
 
-void v21_init(struct v21 *v) { memset(v,0,sizeof *v); }
+void v21_init(struct v21 *v) { memset(v,0,sizeof *v);v->answer_role=1; }
+void v21_set_answer_role(struct v21*v,int answer){v->answer_role=answer!=0;}
 
 size_t v21_write(struct v21 *v,const uint8_t *d,size_t n) {
     size_t done=0;
@@ -39,7 +40,7 @@ void v21_generate(struct v21 *v,int16_t *out,size_t n) {
     for(size_t i=0;i<n;i++) {
         if (v->tx_clock<=0.0) { v->tx_bit=tx_bit(v); v->tx_clock += (double)V21_RATE/V21_BAUD; }
         /* Answer-channel: mark 1650 Hz, space 1850 Hz. */
-        double freq=v->tx_bit?1650.0:1850.0;
+        double freq=v->answer_role?(v->tx_bit?1650.0:1850.0):(v->tx_bit?980.0:1180.0);
         v->tx_phase += 2.0*M_PI*freq/V21_RATE;
         if(v->tx_phase>=2.0*M_PI)v->tx_phase-=2.0*M_PI;
         out[i]=(int16_t)(sin(v->tx_phase)*11000.0); v->tx_clock-=1.0;
@@ -59,7 +60,9 @@ void v21_receive(struct v21 *v,const int16_t *in,size_t n) {
     for(size_t k=0;k<n;k++) {
         double x=in[k]/32768.0;
         /* The calling/originate modem transmits channel 1: mark 980, space 1180. */
-        double pm=v->rx_phase*980.0, ps=v->rx_phase*1180.0;
+        double mark_hz=v->answer_role?980.0:1650.0;
+        double space_hz=v->answer_role?1180.0:1850.0;
+        double pm=v->rx_phase*mark_hz, ps=v->rx_phase*space_hz;
         v->rx_mark_i+=x*cos(pm); v->rx_mark_q+=x*sin(pm);
         v->rx_space_i+=x*cos(ps); v->rx_space_q+=x*sin(ps);
         v->rx_phase += 2.0*M_PI/V21_RATE; v->rx_clock+=1.0;

@@ -9,8 +9,10 @@ struct v22 {
     double tx_phase,tx_clock;uint64_t tx_samples;
     double rx_i,rx_q,rx_clock,rx_phase,rx_previous_phase;uint64_t rx_samples;int rx_have_phase;
     unsigned rx_frame;int rx_bits,rx_receiving;
+    int answer_role;
 };
 void v22_init(struct v22 *v);
+void v22_set_answer_role(struct v22 *v,int answer);
 size_t v22_write(struct v22 *v,const uint8_t *data,size_t length);
 size_t v22_read(struct v22 *v,uint8_t *data,size_t capacity);
 void v22_generate(struct v22 *v,int16_t *samples,size_t count);

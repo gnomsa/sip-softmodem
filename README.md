@@ -80,7 +80,8 @@ All settings are environment variables. See
 | `SOFTMODEM_PUBLIC_IP` | `127.0.0.1` | address advertised in Contact and SDP |
 | `SOFTMODEM_SIP_PORT` | `5060` | SIP UDP port |
 | `SOFTMODEM_RTP_PORT` | `10000` | RTP UDP port |
-| `SOFTMODEM_SPEED` | `1200` | line modulation: `300` (V.21) or `1200` (V.22) |
+| `SOFTMODEM_PROTOCOLS` | `ALL` | allowed protocols; this build implements `V21,V22` |
+| `SOFTMODEM_MAX_RATE` | `33600` | maximum permitted rate; highest enabled implemented mode is selected |
 | `SOFTMODEM_ALLOWED_IPS` | empty | comma-separated SIP source addresses; empty allows all |
 | `SOFTMODEM_OUTBOUND_HOST` | empty | SIP proxy/SBC address used for outgoing `ATD` calls |
 | `SOFTMODEM_OUTBOUND_PORT` | `5060` | SIP proxy/SBC UDP port |
