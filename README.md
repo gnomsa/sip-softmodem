@@ -94,6 +94,9 @@ source code, binaries or VM images from other modem projects.
 - the measured probe is converted into all six INFO1c projection entries;
   symbol-rate ceilings and configured rate masks are enforced, while spectral
   notches reduce the projection and high-frequency loss selects pre-emphasis
+- a duplex probing controller sequences answer L1/L2, call L1/L2 and INFO1c,
+  then selects the asymmetric mode and returns INFO1a; transmit and receive
+  cursors remain independent across ten packets of simulated media latency
 - normative Phase 3 S/S-bar, PP and four-point TRN symbol generation, including
   the separate call and answer scramblers, plus a PCMA training transmitter
 - Phase 4 J-prime/TRN/MP/MP-prime/E plans and a PCMA MP Type 0 receiver
