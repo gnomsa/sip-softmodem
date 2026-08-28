@@ -80,6 +80,10 @@ source code, binaries or VM images from other modem projects.
 - streaming Phase 2 A and B tone generators/detectors preserve phase across
   packets, include the answer-side guard tone, and report 180-degree phase
   reversals independently of carrier presence
+- the initial Phase 2 ranging controller waits 75 ms after V.8, exchanges and
+  validates INFO0, performs the 50/40/10 ms A/B reversal sequence, and derives
+  round-trip delay; its duplex test inserts 200 ms of packet buffering in each
+  direction and measures the expected 400 ms round trip
 - normative Phase 3 S/S-bar, PP and four-point TRN symbol generation, including
   the separate call and answer scramblers, plus a PCMA training transmitter
 - Phase 4 J-prime/TRN/MP/MP-prime/E plans and a PCMA MP Type 0 receiver
