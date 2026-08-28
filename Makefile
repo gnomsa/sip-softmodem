@@ -19,6 +19,7 @@ SRC += src/v34_j_detector.c
 SRC += src/v34_training_rx.c
 SRC += src/v34_mp.c
 SRC += src/v34_phase4.c
+SRC += src/v34_mp_receiver.c
 OBJ := $(SRC:.c=.o)
 
 .PHONY: all clean test link-test integration-test integration-v32-test integration-v32-4800-test integration-v32bis-test
@@ -27,7 +28,7 @@ all: sip-softmodem
 sip-softmodem: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $(OBJ) $(LDLIBS)
 
-test: tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 tests/test_v8_fsk tests/test_v8_session tests/test_ansam tests/test_v32_std tests/test_v32bis_trellis tests/test_v32bis_map tests/test_v32bis_viterbi tests/test_v32bis_data tests/test_v32bis_qam tests/test_v32bis_link tests/test_v32_training tests/test_v32_line tests/test_v32_rate tests/test_v32_e tests/test_v32_data tests/test_v32_qam tests/test_v32_startup tests/test_v32_startup_link tests/test_v32_retrain tests/test_v32_session tests/test_v42_hdlc tests/test_v42_lapm tests/test_v42_arq tests/test_v42_link tests/test_v42_xid tests/test_v42_session tests/test_v42_stream tests/test_v42_v32 tests/test_v34_caps tests/test_v34_info tests/test_v34_info1 tests/test_v34_phase2 tests/test_v34_timing tests/test_v34_phase3 tests/test_v34_training_symbols tests/test_v34_training_tx tests/test_v34_phase3_stream tests/test_v34_j_detector tests/test_v34_training_rx tests/test_v34_phase3_link tests/test_v34_mp tests/test_v34_phase4 tests/test_v34_phase4_link
+test: tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 tests/test_v8_fsk tests/test_v8_session tests/test_ansam tests/test_v32_std tests/test_v32bis_trellis tests/test_v32bis_map tests/test_v32bis_viterbi tests/test_v32bis_data tests/test_v32bis_qam tests/test_v32bis_link tests/test_v32_training tests/test_v32_line tests/test_v32_rate tests/test_v32_e tests/test_v32_data tests/test_v32_qam tests/test_v32_startup tests/test_v32_startup_link tests/test_v32_retrain tests/test_v32_session tests/test_v42_hdlc tests/test_v42_lapm tests/test_v42_arq tests/test_v42_link tests/test_v42_xid tests/test_v42_session tests/test_v42_stream tests/test_v42_v32 tests/test_v34_caps tests/test_v34_info tests/test_v34_info1 tests/test_v34_phase2 tests/test_v34_timing tests/test_v34_phase3 tests/test_v34_training_symbols tests/test_v34_training_tx tests/test_v34_phase3_stream tests/test_v34_j_detector tests/test_v34_training_rx tests/test_v34_phase3_link tests/test_v34_mp tests/test_v34_phase4 tests/test_v34_phase4_link tests/test_v34_mp_receiver
 	./tests/test_core
 	./tests/test_tones
 	./tests/test_v22_handshake
@@ -75,6 +76,7 @@ test: tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 te
 	./tests/test_v34_mp
 	./tests/test_v34_phase4
 	./tests/test_v34_phase4_link
+	./tests/test_v34_mp_receiver
 
 link-test: tests/dsp_link
 	./tests/dsp_link
@@ -233,6 +235,9 @@ tests/test_v34_phase4: tests/test_v34_phase4.c src/v34_phase4.c src/v34_mp.c src
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
 tests/test_v34_phase4_link: tests/test_v34_phase4_link.c src/v34_phase4.c src/v34_mp.c src/v34_info.c src/v34_training_symbols.c src/v34_training_tx.c src/v34_training_rx.c src/v34_timing.c src/v34_caps.c src/pcma.c
+	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
+
+tests/test_v34_mp_receiver: tests/test_v34_mp_receiver.c src/v34_mp_receiver.c src/v34_mp.c src/v34_info.c src/v34_caps.c src/v34_training_symbols.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
 clean:

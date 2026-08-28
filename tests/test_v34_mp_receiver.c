@@ -1,0 +1,5 @@
+#include "v34_mp_receiver.h"
+#include "v34_caps.h"
+#include <assert.h>
+#include <stdio.h>
+int main(void){v34_mp0 mp={14,11,false,2,true,false,false,V34_RATE_ALL_MASK,true},got;uint8_t frame[V34_MP0_BYTES],phase;v34_scrambler tx,rxseed;v34_mp_receiver rx;unsigned rot=1,txrot=1,bi=0,n;v34_scrambler_init(&tx,true);rxseed=tx;assert(v34_mp_receiver_init(&rx,&rxseed,rot));assert(v34_mp0_encode(&mp,frame));for(n=0;n<44;n++){assert(v34_packed_bits4_phase(&tx,frame,V34_MP0_BITS,&bi,&txrot,&phase));if(n<43)assert(!v34_mp_receiver_feed(&rx,phase,&got));else assert(v34_mp_receiver_feed(&rx,phase,&got));}assert(!got.acknowledge&&got.call_to_answer_rate_2400==14&&got.answer_to_call_rate_2400==11);mp.acknowledge=true;assert(v34_mp0_encode(&mp,frame));bi=0;v34_mp_receiver_next(&rx);for(n=0;n<44;n++){assert(v34_packed_bits4_phase(&tx,frame,V34_MP0_BITS,&bi,&txrot,&phase));if(n<43)assert(!v34_mp_receiver_feed(&rx,phase,&got));else assert(v34_mp_receiver_feed(&rx,phase,&got));}assert(got.acknowledge);puts("v34 MP and MP-prime symbol receiver tests: ok");return 0;}
