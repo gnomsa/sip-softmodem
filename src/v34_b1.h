@@ -4,6 +4,8 @@
 #include "v34_framing.h"
 #include "v34_training_symbols.h"
 
+#include <stddef.h>
+
 typedef struct {
     v34_frame_geometry geometry;
     uint16_t mapping_offset[V34_MAX_MAPPING_FRAMES + 1u];
