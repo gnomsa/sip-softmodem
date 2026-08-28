@@ -170,8 +170,18 @@ an exact payload through both PTYs. It needs permission to open local UDP
 sockets.
 
 `make integration-v32-test` performs the same full-process test with V.8 and
-the composite V.32 path, checks `CONNECT 9600`, and verifies the PTY payload.
+the composite V.32 path, negotiates a V.42 LAPM session (XID and SABME/UA),
+checks `CONNECT 9600`, and verifies the PTY payload through HDLC/ARQ.
 `make integration-v32-4800-test` exercises the corresponding 4800-bit/s path.
+The deterministic V.42-over-V.32 test currently transfers 1000 exact bytes at
+about 454.5 application bytes/s on the 9600-bit/s line.  This is an initial,
+unoptimized result and includes LAPM and continuous HDLC idle traffic.
+
+The V.42 implementation includes 16-bit FCS, bit stuffing, modulo-128 I and S
+frames, cumulative acknowledgements, REJ retransmission, T401 retries, XID
+parameter negotiation and SABME/UA establishment.  It is exercised between two
+copies of this program; interoperability with a hardware LAPM modem has not yet
+been demonstrated.
 
 ## Install as a service
 

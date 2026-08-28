@@ -55,7 +55,7 @@ def main():
                     raise RuntimeError("softmodem startup failed")
             fds = [raw_open(path) for path in paths]
             os.write(fds[0], b"ATDT123\r")
-            result = read_until(fds[0], marker, 18)
+            result = read_until(fds[0], marker, 35)
             if marker not in result:
                 details=[]
                 for log in logs:
