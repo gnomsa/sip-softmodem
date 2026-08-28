@@ -16,7 +16,7 @@ source code, binaries or VM images from other modem projects.
 - RTP at 8 kHz with 20 ms packets
 - sequence-aware 200 ms RTP jitter buffer without synthetic concealment audio
 - G.711 A-law encoder and decoder
-- V.21 answer channel: TX 1650/1850 Hz, RX 980/1180 Hz, 300 bit/s, 8N1
+- selectable V.21 at 300 bit/s or V.22 DQPSK at 1200 bit/s
 - 2100 Hz answer tone followed by a short guard interval
 - transparent PTY suitable for a terminal program or experimental PPP
 
@@ -77,6 +77,7 @@ All settings are environment variables. See
 | `SOFTMODEM_PUBLIC_IP` | `127.0.0.1` | address advertised in Contact and SDP |
 | `SOFTMODEM_SIP_PORT` | `5060` | SIP UDP port |
 | `SOFTMODEM_RTP_PORT` | `10000` | RTP UDP port |
+| `SOFTMODEM_SPEED` | `1200` | line modulation: `300` (V.21) or `1200` (V.22) |
 | `SOFTMODEM_ALLOWED_IPS` | empty | comma-separated SIP source addresses; empty allows all |
 | `SOFTMODEM_TTY` | `/tmp/ttySOFTMODEM0` | stable symlink to the allocated PTY |
 | `SOFTMODEM_USER_AGENT` | `SIP-Softmodem/0.1` | value used in the SIP `Server` header |

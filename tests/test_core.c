@@ -3,6 +3,7 @@
 #include "rtp.h"
 #include "sip.h"
 #include "v21.h"
+#include "v22.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -49,4 +50,8 @@ static void test_v21_receive(void) {
     v21_receive(&modem,samples,used);uint8_t out=0;
     assert(v21_read(&modem,&out,1)==1);assert(out==byte);
 }
-int main(void) { test_pcma();test_rtp();test_jitter();test_sip();test_v21_receive();puts("all core tests passed");return 0; }
+static void test_v22_transmit(void) {
+    struct v22 modem;v22_init(&modem);uint8_t text[]={0x55,0xaa};assert(v22_write(&modem,text,sizeof text)==sizeof text);
+    int16_t samples[160];v22_generate(&modem,samples,160);long long energy=0;for(size_t i=0;i<160;i++)energy+=(long long)samples[i]*samples[i];assert(energy>1000000000LL);
+}
+int main(void) { test_pcma();test_rtp();test_jitter();test_sip();test_v21_receive();test_v22_transmit();puts("all core tests passed");return 0; }
