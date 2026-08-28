@@ -54,8 +54,11 @@ source code, binaries or VM images from other modem projects.
   zero insertion/removal after five contiguous one bits, and rejection of
   corrupted frames (not connected to the live data path yet)
 - LAPM modulo-128 control fields encode and decode I, RR, RNR, REJ and SREJ
-  frames with DLCI 0, C/R, N(S), N(R) and P/F fields (ARQ state machine not
-  connected to the live data path yet)
+  frames with DLCI 0, C/R, N(S), N(R) and P/F fields
+- an eight-frame LAPM ARQ window implements cumulative RR acknowledgement,
+  RNR signalling and REJ retransmission; deterministic tests corrupt a middle
+  frame, recover the exact ordered stream, and exercise sequence wrap 127 to 0
+  (timers and live data-path integration are still pending)
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
