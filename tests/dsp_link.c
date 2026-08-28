@@ -42,4 +42,10 @@ static int test_v32_rate(int rate){
     for(;blocks<4000&&(na<N||nb<N);blocks++){int16_t xa[160],xb[160];v32_generate(&a,xa,160);v32_generate(&b,xb,160);channel(xa);channel(xb);v32_receive(&a,xb,160);v32_receive(&b,xa,160);na+=v32_read(&b,rab+na,N-na);nb+=v32_read(&a,rba+nb,N-nb);}
     size_t ea=errors(ab,rab,na),eb=errors(ba,rba,nb);double seconds=blocks*.020;printf("V.32-%d/PCMA: A->B %zu/%d bytes, %zu bit errors; B->A %zu/%d bytes, %zu bit errors; %.1f B/s\n",rate,na,N,ea,nb,N,eb,N/seconds);return na==N&&nb==N&&ea==0&&eb==0?0:1;
 }
-int main(void){int a=test_v21(),b=test_v22(),c=test_v22bis(),d=test_v32_rate(4800),e=test_v32_rate(9600);return a||b||c||d||e;}
+static int test_v22bis_handshake(void){
+    struct v22bis a,b;v22bis_init(&a);v22bis_init(&b);v22bis_start_handshake(&a,0);v22bis_start_handshake(&b,1);v22bis_answer_sequence_complete(&b);
+    int blocks=0;for(;blocks<400&&!v22bis_connected(&a);blocks++){int16_t xa[160],xb[160];v22bis_generate(&a,xa,160);v22bis_generate(&b,xb,160);channel(xa);channel(xb);v22bis_receive(&a,xb,160);v22bis_receive(&b,xa,160);v22bis_advance(&a,20);v22bis_advance(&b,20);}
+    printf("V.22bis handshake/PCMA: caller rate %d state %d probe max %d; answer rate %d state %d probe max %d, %.2f s\n",v22bis_selected_rate(&a),a.hs.tx,a.probe_max,v22bis_selected_rate(&b),b.hs.tx,b.probe_max,blocks*.02);
+    return v22bis_connected(&a)&&v22bis_connected(&b)&&v22bis_selected_rate(&a)==2400&&v22bis_selected_rate(&b)==2400?0:1;
+}
+int main(void){int a=test_v21(),b=test_v22(),c=test_v22bis(),d=test_v32_rate(4800),e=test_v32_rate(9600),f=test_v22bis_handshake();return a||b||c||d||e||f;}

@@ -24,6 +24,8 @@ source code, binaries or VM images from other modem projects.
   `ATQ`, `ATI`, `ATS0`, `ATZ` and `AT+MS`
 - incoming SIP calls produce `RING`; `ATA` and `ATS0` control the SIP answer
 - incoming caller identity is reported as `+CLIP: "..."` alongside `RING`
+- V.25 answer-tone detection and a V.22bis start-up state machine with 2400
+  selection and 1200 fallback
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
@@ -104,7 +106,8 @@ exact IPv4 match, not a replacement for a firewall on an untrusted network.
 `ALL` currently chooses 2400. Setting the maximum to 1200 or 300 selects a
 lower mode. `EXPERIMENTAL_QAM` explicitly enables the private 4800/9600
 loopback waveform; it is deliberately not named V.32 and is never selected by
-`ALL`. Selection is still configuration-time, not on-line negotiation yet.
+`ALL`. V.22bis now performs its in-band 2400/1200 selection. Selection between
+modem families (V.8 automode) is not implemented yet.
 
 ## Measured loopback status
 
@@ -115,6 +118,11 @@ payload throughput at 9600 is about 948 bytes/s and at 4800 about 474 bytes/s;
 UART framing accounts for most of the difference from the raw bit rate. This
 test establishes compatibility between two copies of this software only, not
 compatibility with a telephone-network or hardware modem.
+
+`make integration-test` starts two complete processes on local SIP and RTP
+ports, dials with `ATDT`, negotiates V.22bis, checks `CONNECT 2400` and verifies
+an exact payload through both PTYs. It needs permission to open local UDP
+sockets.
 
 ## Install as a service
 
