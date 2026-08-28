@@ -23,6 +23,7 @@ typedef struct {
     double phase_sum_xx;
     double phase_sum_xy;
     double phase_weight;
+    double frequency_error;
     uint64_t previous_symbol_end;
     unsigned phase_samples;
     unsigned mapping_frame;

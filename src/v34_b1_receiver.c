@@ -161,6 +161,7 @@ static void finish_carrier_estimate(v34_b1_receiver *receiver)
         frequency_error = 0.0;
         phase_at_boundary = 0.0;
     }
+    receiver->frequency_error = frequency_error;
     receiver->rx.carrier_step += frequency_error;
     receiver->rx.carrier_phase =
         fmod(receiver->rx.carrier_phase + phase_at_boundary, 2.0 * M_PI);

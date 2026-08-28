@@ -1,5 +1,6 @@
 #include "v34_data_receiver.h"
 
+#include <math.h>
 #include <string.h>
 
 static bool finish_mapping_frame(v34_data_receiver *receiver)
@@ -54,6 +55,7 @@ bool v34_data_receiver_init_after_b1(v34_data_receiver *receiver,
     receiver->rx = b1->rx;
     receiver->descrambler = b1->descrambler;
     receiver->coordinate_scale = b1->coordinate_scale;
+    receiver->track_carrier = fabs(b1->frequency_error) >= 2e-5;
     return true;
 }
 
@@ -85,10 +87,11 @@ static bool feed_sample(v34_data_receiver *receiver, uint8_t pcma)
     if (!v34_slice_iq(in_phase, quadrature,
                       receiver->coordinate_scale, point))
         return false;
-    v34_training_rx_track_carrier(
-        &receiver->rx, in_phase, quadrature,
-        receiver->coordinate_scale * point->re,
-        receiver->coordinate_scale * point->im);
+    if (receiver->track_carrier)
+        v34_training_rx_track_carrier(
+            &receiver->rx, in_phase, quadrature,
+            receiver->coordinate_scale * point->re,
+            receiver->coordinate_scale * point->im);
     receiver->received_symbol++;
     receiver->symbols++;
     if (receiver->received_symbol != 8u)

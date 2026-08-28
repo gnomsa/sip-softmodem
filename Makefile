@@ -31,6 +31,7 @@ SRC += src/v34_data_stream.c
 SRC += src/v34_data_decoder.c
 SRC += src/v34_b1_receiver.c
 SRC += src/v34_data_receiver.c
+SRC += src/v34_uart.c
 OBJ := $(SRC:.c=.o)
 
 .PHONY: all clean test link-test integration-test integration-v32-test integration-v32-4800-test integration-v32bis-test
@@ -39,7 +40,7 @@ all: sip-softmodem
 sip-softmodem: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $(OBJ) $(LDLIBS)
 
-test: tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 tests/test_v8_fsk tests/test_v8_session tests/test_ansam tests/test_v32_std tests/test_v32bis_trellis tests/test_v32bis_map tests/test_v32bis_viterbi tests/test_v32bis_data tests/test_v32bis_qam tests/test_v32bis_link tests/test_v32_training tests/test_v32_line tests/test_v32_rate tests/test_v32_e tests/test_v32_data tests/test_v32_qam tests/test_v32_startup tests/test_v32_startup_link tests/test_v32_retrain tests/test_v32_session tests/test_v42_hdlc tests/test_v42_lapm tests/test_v42_arq tests/test_v42_link tests/test_v42_xid tests/test_v42_session tests/test_v42_stream tests/test_v42_v32 tests/test_v34_caps tests/test_v34_info tests/test_v34_info1 tests/test_v34_phase2 tests/test_v34_timing tests/test_v34_phase3 tests/test_v34_training_symbols tests/test_v34_training_tx tests/test_v34_phase3_stream tests/test_v34_j_detector tests/test_v34_training_rx tests/test_v34_phase3_link tests/test_v34_mp tests/test_v34_phase4 tests/test_v34_phase4_link tests/test_v34_mp_receiver tests/test_v34_framing tests/test_v34_b1 tests/test_v34_mapper tests/test_v34_data_mapper tests/test_v34_trellis tests/test_v34_b1_stream tests/test_v34_data_stream tests/test_v34_data_decoder tests/test_v34_b1_receiver
+test: tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 tests/test_v8_fsk tests/test_v8_session tests/test_ansam tests/test_v32_std tests/test_v32bis_trellis tests/test_v32bis_map tests/test_v32bis_viterbi tests/test_v32bis_data tests/test_v32bis_qam tests/test_v32bis_link tests/test_v32_training tests/test_v32_line tests/test_v32_rate tests/test_v32_e tests/test_v32_data tests/test_v32_qam tests/test_v32_startup tests/test_v32_startup_link tests/test_v32_retrain tests/test_v32_session tests/test_v42_hdlc tests/test_v42_lapm tests/test_v42_arq tests/test_v42_link tests/test_v42_xid tests/test_v42_session tests/test_v42_stream tests/test_v42_v32 tests/test_v34_caps tests/test_v34_info tests/test_v34_info1 tests/test_v34_phase2 tests/test_v34_timing tests/test_v34_phase3 tests/test_v34_training_symbols tests/test_v34_training_tx tests/test_v34_phase3_stream tests/test_v34_j_detector tests/test_v34_training_rx tests/test_v34_phase3_link tests/test_v34_mp tests/test_v34_phase4 tests/test_v34_phase4_link tests/test_v34_mp_receiver tests/test_v34_framing tests/test_v34_b1 tests/test_v34_mapper tests/test_v34_data_mapper tests/test_v34_trellis tests/test_v34_b1_stream tests/test_v34_data_stream tests/test_v34_data_decoder tests/test_v34_b1_receiver tests/test_v34_uart
 	./tests/test_core
 	./tests/test_tones
 	./tests/test_v22_handshake
@@ -97,6 +98,7 @@ test: tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 te
 	./tests/test_v34_data_stream
 	./tests/test_v34_data_decoder
 	./tests/test_v34_b1_receiver
+	./tests/test_v34_uart
 
 link-test: tests/dsp_link
 	./tests/dsp_link
@@ -287,5 +289,8 @@ tests/test_v34_data_decoder: tests/test_v34_data_decoder.c src/v34_data_decoder.
 tests/test_v34_b1_receiver: tests/test_v34_b1_receiver.c src/v34_b1_receiver.c src/v34_b1_stream.c src/v34_data_decoder.c src/v34_qam_tx.c src/v34_trellis.c src/v34_data_mapper.c src/v34_mapper.c src/v34_b1.c src/v34_framing.c src/v34_training_symbols.c src/v34_training_rx.c src/v34_timing.c src/v34_caps.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
+tests/test_v34_uart: tests/test_v34_uart.c src/v34_uart.c
+	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
+
 clean:
-	rm -f $(OBJ) sip-softmodem tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 tests/test_v8_fsk tests/test_v8_session tests/test_ansam tests/test_v32_std tests/test_v32bis_trellis tests/test_v32_training tests/test_v32_line tests/test_v32_rate tests/test_v32_e tests/test_v32_data tests/test_v32_qam tests/test_v32_startup tests/test_v32_startup_link tests/test_v32_retrain tests/test_v32_session tests/test_v42_hdlc tests/test_v42_lapm tests/test_v42_arq tests/test_v42_link tests/test_v42_xid tests/test_v42_session tests/test_v42_stream tests/test_v42_v32 tests/test_v34_caps tests/test_v34_info tests/test_v34_info1 tests/test_v34_phase2 tests/test_v34_timing tests/test_v34_b1 tests/test_v34_mapper tests/test_v34_data_mapper tests/test_v34_trellis tests/test_v34_b1_stream tests/test_v34_data_stream tests/test_v34_data_decoder tests/test_v34_b1_receiver tests/dsp_link
+	rm -f $(OBJ) sip-softmodem tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 tests/test_v8_fsk tests/test_v8_session tests/test_ansam tests/test_v32_std tests/test_v32bis_trellis tests/test_v32_training tests/test_v32_line tests/test_v32_rate tests/test_v32_e tests/test_v32_data tests/test_v32_qam tests/test_v32_startup tests/test_v32_startup_link tests/test_v32_retrain tests/test_v32_session tests/test_v42_hdlc tests/test_v42_lapm tests/test_v42_arq tests/test_v42_link tests/test_v42_xid tests/test_v42_session tests/test_v42_stream tests/test_v42_v32 tests/test_v34_caps tests/test_v34_info tests/test_v34_info1 tests/test_v34_phase2 tests/test_v34_timing tests/test_v34_b1 tests/test_v34_mapper tests/test_v34_data_mapper tests/test_v34_trellis tests/test_v34_b1_stream tests/test_v34_data_stream tests/test_v34_data_decoder tests/test_v34_b1_receiver tests/test_v34_uart tests/dsp_link

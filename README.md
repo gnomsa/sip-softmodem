@@ -82,6 +82,8 @@ source code, binaries or VM images from other modem projects.
   from fourteen 20 ms PCMA blocks despite injected phase and frequency offsets
 - continuous V.34 data superframes retain carrier, symbol clock, scrambler,
   differential and trellis state without repeating B1
+- an 8N1 asynchronous byte adapter accepts arbitrary PTY-sized writes, emits
+  mark bits while idle, and reconstructs bytes from the primary-channel bits
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full timing recovery, adaptive

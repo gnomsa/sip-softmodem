@@ -19,6 +19,7 @@ typedef struct {
     uint64_t symbols;
     bool complete;
     bool failed;
+    bool track_carrier;
 } v34_data_receiver;
 
 bool v34_data_receiver_init_after_b1(v34_data_receiver *receiver,
