@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#define CALL_RX_DELAY 13u
+#define ANSWER_RX_DELAY 7u
+
 int main(void)
 {
     v34_session caller;
@@ -23,8 +26,9 @@ int main(void)
     uint8_t call_input[1403], answer_input[997];
     uint8_t call_output[1403], answer_output[997];
     size_t call_count = 0, answer_count = 0, i;
-    uint8_t call_delay[10][160], answer_delay[10][160];
-    unsigned packet;
+    uint8_t call_delay[ANSWER_RX_DELAY][160];
+    uint8_t answer_delay[CALL_RX_DELAY][160];
+    unsigned packet, deferred_peak = 0u;
 
     assert(v34_session_init(&caller, &call_config));
     assert(v34_session_init(&answerer, &answer_config));
@@ -37,20 +41,30 @@ int main(void)
     assert(v34_session_write(&answerer, answer_input, sizeof(answer_input)) ==
            sizeof(answer_input));
 
-    for (packet = 0; packet < 220u; ++packet) {
+    for (packet = 0; packet < 240u; ++packet) {
         uint8_t call_pcma[160], answer_pcma[160], bytes[53];
         size_t count;
+        if (packet >= CALL_RX_DELAY) {
+            assert(v34_session_receive(
+                &caller,
+                answer_delay[(packet - CALL_RX_DELAY) % CALL_RX_DELAY]));
+        }
+        if (packet >= ANSWER_RX_DELAY) {
+            assert(v34_session_receive(
+                &answerer,
+                call_delay[(packet - ANSWER_RX_DELAY) % ANSWER_RX_DELAY]));
+        }
+        if (caller.deferred_rx_count > deferred_peak)
+            deferred_peak = caller.deferred_rx_count;
+        if (answerer.deferred_rx_count > deferred_peak)
+            deferred_peak = answerer.deferred_rx_count;
         assert(v34_session_generate(&caller, call_pcma));
         assert(v34_session_generate(&answerer, answer_pcma));
-        if (packet >= 10u) {
-            assert(v34_session_receive(
-                &caller, answer_delay[(packet - 10u) % 10u]));
-            assert(v34_session_receive(
-                &answerer, call_delay[(packet - 10u) % 10u]));
-        }
-        memcpy(call_delay[packet % 10u], call_pcma, sizeof(call_pcma));
-        memcpy(answer_delay[packet % 10u], answer_pcma, sizeof(answer_pcma));
-        if (packet < 10u)
+        memcpy(call_delay[packet % ANSWER_RX_DELAY],
+               call_pcma, sizeof(call_pcma));
+        memcpy(answer_delay[packet % CALL_RX_DELAY],
+               answer_pcma, sizeof(answer_pcma));
+        if (packet < CALL_RX_DELAY)
             continue;
         while ((count = v34_session_read(
                     &answerer, bytes, sizeof(bytes))) != 0u) {
@@ -68,7 +82,7 @@ int main(void)
             answer_count == sizeof(answer_input))
             break;
     }
-    assert(packet < 220u);
+    assert(packet < 240u);
     assert(v34_session_connected(&caller));
     assert(v34_session_connected(&answerer));
     assert(caller.rates.call_to_answer == 33600u);
@@ -77,7 +91,8 @@ int main(void)
     assert(answerer.rates.answer_to_call == 28800u);
     assert(memcmp(call_output, call_input, sizeof(call_input)) == 0);
     assert(memcmp(answer_output, answer_input, sizeof(answer_input)) == 0);
-    printf("v34 delayed session: Phase 3/4/B1, 33600/28800, %zu + %zu bytes\n",
-           call_count, answer_count);
+    printf("v34 asymmetric session: Phase 3/4/B1, 33600/28800, "
+           "%zu + %zu bytes, %u deferred packets\n",
+           call_count, answer_count, deferred_peak);
     return 0;
 }
