@@ -1,6 +1,7 @@
 #include "pcma.h"
 #include "v21.h"
 #include "v22.h"
+#include "v22bis.h"
 #include <stdio.h>
 
 static void pattern(unsigned char*p,size_t n,unsigned seed){unsigned x=seed;for(size_t i=0;i<n;i++){x^=x<<13;x^=x>>17;x^=x<<5;p[i]=(unsigned char)x;}}
@@ -25,4 +26,13 @@ static int test_v22(void){
     printf("V.22/PCMA: A->B %zu/%d bytes, %zu bit errors; B->A %zu/%d bytes, %zu bit errors; %.1f B/s including training\n",na,N,ea,nb,N,eb,N/seconds);
     return na==N&&nb==N&&ea==0&&eb==0?0:1;
 }
-int main(void){int a=test_v21(),b=test_v22();return a||b;}
+static int test_v22bis(void){
+    enum{N=512};unsigned char ab[N],ba[N],rab[N]={0},rba[N]={0};pattern(ab,N,5);pattern(ba,N,6);
+    struct v22bis a,b;v22bis_init(&a);v22bis_init(&b);v22bis_set_answer_role(&a,0);v22bis_set_answer_role(&b,1);v22bis_write(&a,ab,N);v22bis_write(&b,ba,N);
+    size_t na=0,nb=0;int blocks=0;
+    for(;blocks<4000&&(na<N||nb<N);blocks++){int16_t xa[160],xb[160];v22bis_generate(&a,xa,160);v22bis_generate(&b,xb,160);channel(xa);channel(xb);v22bis_receive(&a,xb,160);v22bis_receive(&b,xa,160);na+=v22bis_read(&b,rab+na,N-na);nb+=v22bis_read(&a,rba+nb,N-nb);}
+    size_t ea=errors(ab,rab,na),eb=errors(ba,rba,nb);double seconds=blocks*0.020;
+    printf("V.22bis/PCMA: A->B %zu/%d bytes, %zu bit errors; B->A %zu/%d bytes, %zu bit errors; %.1f B/s including training\n",na,N,ea,nb,N,eb,N/seconds);
+    return na==N&&nb==N&&ea==0&&eb==0?0:1;
+}
+int main(void){int a=test_v21(),b=test_v22(),c=test_v22bis();return a||b||c;}

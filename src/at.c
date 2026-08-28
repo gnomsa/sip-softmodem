@@ -18,6 +18,7 @@ static enum at_event execute(struct at_modem*a,char*out,size_t cap,size_t*used){
 }
 enum at_event at_feed(struct at_modem*a,const uint8_t*d,size_t n,char*out,size_t cap){size_t used=0;enum at_event event=AT_EVENT_NONE;for(size_t i=0;i<n;i++){uint8_t c=d[i];if(a->echo&&used<cap)out[used++]=(char)c;if(c=='\r'||c=='\n'){if(a->length){a->line[a->length]=0;event=execute(a,out,cap,&used);a->length=0;}}else if((c==8||c==127)&&a->length)a->length--;else if(c>=32&&c<127&&a->length<sizeof a->line-1)a->line[a->length++]=(char)c;}return event;}
 enum at_event at_ring(struct at_modem*a,char*out,size_t cap){a->rings++;size_t n=result(a,out,cap,"RING","2");(void)n;return a->s0>0&&a->rings>=a->s0?AT_EVENT_ANSWER:AT_EVENT_NONE;}
+enum at_event at_ring_caller(struct at_modem*a,const char*caller,char*out,size_t cap){a->rings++;size_t n=result(a,out,cap,"RING","2");if(caller&&*caller&&!a->quiet){char b[640];snprintf(b,sizeof b,"\r\n+CLIP: \"%s\"\r\n",caller);size_t used=n,room=used<cap?cap-used:0;if(room){size_t z=strlen(b)<room?strlen(b):room;memcpy(out+used,b,z);}n+=strlen(b);}return a->s0>0&&a->rings>=a->s0?AT_EVENT_ANSWER:AT_EVENT_NONE;}
 size_t at_connected(struct at_modem*a,int speed,char*out,size_t cap){a->online=1;a->rings=0;char word[64];snprintf(word,sizeof word,"CONNECT %d",speed);return result(a,out,cap,word,"1");}
 size_t at_no_carrier(struct at_modem*a,char*out,size_t cap){a->online=0;a->rings=0;return result(a,out,cap,"NO CARRIER","3");}
 size_t at_no_dialtone(struct at_modem*a,char*out,size_t cap){return result(a,out,cap,"NO DIALTONE","6");}

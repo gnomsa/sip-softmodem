@@ -16,12 +16,13 @@ source code, binaries or VM images from other modem projects.
 - RTP at 8 kHz with 20 ms packets
 - sequence-aware 200 ms RTP jitter buffer without synthetic concealment audio
 - G.711 A-law encoder and decoder
-- selectable V.21 at 300 bit/s or V.22 DQPSK at 1200 bit/s
+- selectable V.21 at 300 bit/s, V.22 DQPSK at 1200 bit/s, or V.22bis QAM at 2400 bit/s
 - 2100 Hz answer tone followed by a short guard interval
 - transparent PTY suitable for a terminal program or experimental PPP
 - V.250-style command mode with `AT`, `ATDT`, `ATDP`, `ATDL`, `ATA`, `ATH`, `ATO`, `ATE`, `ATV`,
   `ATQ`, `ATI`, `ATS0`, `ATZ` and `AT+MS`
 - incoming SIP calls produce `RING`; `ATA` and `ATS0` control the SIP answer
+- incoming caller identity is reported as `+CLIP: "..."` alongside `RING`
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
@@ -80,7 +81,7 @@ All settings are environment variables. See
 | `SOFTMODEM_PUBLIC_IP` | `127.0.0.1` | address advertised in Contact and SDP |
 | `SOFTMODEM_SIP_PORT` | `5060` | SIP UDP port |
 | `SOFTMODEM_RTP_PORT` | `10000` | RTP UDP port |
-| `SOFTMODEM_PROTOCOLS` | `ALL` | allowed protocols; this build implements `V21,V22` |
+| `SOFTMODEM_PROTOCOLS` | `ALL` | allowed protocols; this build implements `V21,V22,V22BIS` |
 | `SOFTMODEM_MAX_RATE` | `33600` | maximum permitted rate; highest enabled implemented mode is selected |
 | `SOFTMODEM_ALLOWED_IPS` | empty | comma-separated SIP source addresses; empty allows all |
 | `SOFTMODEM_OUTBOUND_HOST` | empty | SIP proxy/SBC address used for outgoing `ATD` calls |

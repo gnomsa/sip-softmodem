@@ -11,6 +11,7 @@ struct at_modem {
 void at_init(struct at_modem *at);
 enum at_event at_feed(struct at_modem *at,const uint8_t *data,size_t length,char *output,size_t capacity);
 enum at_event at_ring(struct at_modem *at,char *output,size_t capacity);
+enum at_event at_ring_caller(struct at_modem *at,const char *caller,char *output,size_t capacity);
 size_t at_connected(struct at_modem *at,int speed,char *output,size_t capacity);
 size_t at_no_carrier(struct at_modem *at,char *output,size_t capacity);
 size_t at_no_dialtone(struct at_modem *at,char *output,size_t capacity);
