@@ -17,4 +17,7 @@ typedef struct {
 } v34_mp0;
 bool v34_mp0_encode(const v34_mp0 *mp, uint8_t frame[V34_MP0_BYTES]);
 bool v34_mp0_decode(const uint8_t frame[V34_MP0_BYTES], v34_mp0 *mp);
+typedef struct { unsigned call_to_answer; unsigned answer_to_call; bool asymmetric; } v34_final_rates;
+bool v34_mp0_negotiate_rates(const v34_mp0 *local, const v34_mp0 *remote,
+                             unsigned maximum_rate, v34_final_rates *rates);
 #endif
