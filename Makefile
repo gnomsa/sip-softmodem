@@ -234,7 +234,7 @@ tests/test_v34_mp: tests/test_v34_mp.c src/v34_mp.c src/v34_info.c src/v34_caps.
 tests/test_v34_phase4: tests/test_v34_phase4.c src/v34_phase4.c src/v34_mp.c src/v34_info.c src/v34_caps.c src/v34_training_symbols.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
-tests/test_v34_phase4_link: tests/test_v34_phase4_link.c src/v34_phase4.c src/v34_mp.c src/v34_info.c src/v34_training_symbols.c src/v34_training_tx.c src/v34_training_rx.c src/v34_timing.c src/v34_caps.c src/pcma.c
+tests/test_v34_phase4_link: tests/test_v34_phase4_link.c src/v34_phase4.c src/v34_mp.c src/v34_mp_receiver.c src/v34_info.c src/v34_training_symbols.c src/v34_training_tx.c src/v34_training_rx.c src/v34_timing.c src/v34_caps.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
 tests/test_v34_mp_receiver: tests/test_v34_mp_receiver.c src/v34_mp_receiver.c src/v34_mp.c src/v34_info.c src/v34_caps.c src/v34_training_symbols.c
