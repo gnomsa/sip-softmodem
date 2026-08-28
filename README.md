@@ -156,6 +156,8 @@ make test
 make link-test
 make integration-test
 make integration-v34-test
+# Longer live matrix covering every V.34 rate:
+make integration-v34-all-test
 ```
 
 Run in the foreground:
@@ -249,6 +251,9 @@ checks `CONNECT 9600`, and verifies the PTY payload through HDLC/ARQ.
 `make integration-v34-test` runs the complete V.8, Phase 2, Phase 3, Phase 4,
 B1 and continuous-data path, checks `CONNECT 33600`, and verifies the exact PTY
 payload through two local SIP/RTP processes.
+`make integration-v34-all-test` repeats that test at every 2400-bit/s step from
+2400 through 33600. The loss-free local matrix currently reaches the requested
+`CONNECT` rate and transfers the exact payload at all fourteen rates.
 The deterministic V.42-over-V.32bis test currently transfers 1000 exact bytes
 at about 400, 481, 562 and 610 application bytes/s on 7200, 9600, 12000 and
 14400-bit/s lines. This includes LAPM and continuous HDLC idle traffic.

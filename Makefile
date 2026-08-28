@@ -49,7 +49,7 @@ OBJ := $(SRC:.c=.o)
 DEP := $(OBJ:.o=.d)
 TEST_HEADERS := $(wildcard src/*.h)
 
-.PHONY: all clean test link-test integration-test integration-v32-test integration-v32-4800-test integration-v32bis-test integration-v34-test
+.PHONY: all clean test link-test integration-test integration-v32-test integration-v32-4800-test integration-v32bis-test integration-v34-test integration-v34-all-test
 all: sip-softmodem
 
 src/%.o: CFLAGS += -MMD -MP
@@ -152,6 +152,12 @@ integration-v32bis-test: sip-softmodem
 
 integration-v34-test: sip-softmodem
 	SOFTMODEM_TEST_PROTOCOL=V34 SOFTMODEM_TEST_RATE=33600 python3 tests/integration_local.py
+
+integration-v34-all-test: sip-softmodem
+	@for rate in $$(seq 2400 2400 33600); do \
+		SOFTMODEM_TEST_PROTOCOL=V34 SOFTMODEM_TEST_RATE=$$rate \
+			python3 tests/integration_local.py || exit $$?; \
+	done
 
 tests/dsp_link: tests/dsp_link.c src/v21.c src/v22.c src/v22bis.c src/v22_handshake.c src/v32.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
