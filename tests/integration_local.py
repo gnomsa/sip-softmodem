@@ -31,6 +31,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="softmodem-test-") as root:
         paths = [os.path.join(root, "a"), os.path.join(root, "b")]
         procs = []
+        logs = []
         for index, (sip, rtp, peer) in enumerate(((15060, 11000, 15061), (15061, 11002, 15060))):
             env = os.environ.copy()
             env.update(SOFTMODEM_BIND_IP="127.0.0.1", SOFTMODEM_PUBLIC_IP="127.0.0.1",
@@ -38,8 +39,9 @@ def main():
                        SOFTMODEM_OUTBOUND_HOST="127.0.0.1", SOFTMODEM_OUTBOUND_PORT=str(peer),
                        SOFTMODEM_TTY=paths[index], SOFTMODEM_PROTOCOLS="V22BIS",
                        SOFTMODEM_MAX_RATE="2400")
+            logs.append(tempfile.TemporaryFile())
             procs.append(subprocess.Popen(["./sip-softmodem"], env=env,
-                                          stdout=subprocess.DEVNULL, stderr=subprocess.PIPE))
+                                          stdout=subprocess.DEVNULL, stderr=logs[-1]))
         fds = []
         try:
             deadline = time.monotonic() + 3
@@ -47,7 +49,7 @@ def main():
                 time.sleep(0.05)
             for proc in procs:
                 if proc.poll() is not None:
-                    raise RuntimeError("softmodem startup failed: " + proc.stderr.read().decode(errors="replace"))
+                    raise RuntimeError("softmodem startup failed")
             fds = [raw_open(path) for path in paths]
             os.write(fds[0], b"ATDT123\r")
             result = read_until(fds[0], b"CONNECT 2400")
@@ -58,6 +60,11 @@ def main():
             received = read_until(fds[1], payload, 5)
             if payload not in received:
                 raise RuntimeError("payload mismatch: " + repr(received))
+            for log in logs:
+                log.flush();log.seek(0)
+                content = log.read().decode(errors="replace")
+                if "V.8 selected" not in content:
+                    raise RuntimeError("V.8 was not selected: " + content)
             print("local SIP/RTP/PTY integration: CONNECT 2400, payload received exactly")
         finally:
             for fd in fds:
@@ -69,6 +76,8 @@ def main():
                     proc.wait(timeout=2)
                 except subprocess.TimeoutExpired:
                     proc.kill()
+            for log in logs:
+                log.close()
 
 
 if __name__ == "__main__":

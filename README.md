@@ -26,8 +26,7 @@ source code, binaries or VM images from other modem projects.
 - incoming caller identity is reported as `+CLIP: "..."` alongside `RING`
 - V.25 answer-tone detection and a V.22bis start-up state machine with 2400
   selection and 1200 fallback
-- V.8 CM/JM/CJ framing, capability intersection and V.21(L/H) FSK transport;
-  these components are tested but not yet enabled in the live call path
+- V.8 CM/JM/CJ framing, capability intersection and V.21(L/H) FSK transport
 - V.8 ANSam generation and detection through G.711 A-law, including 15 Hz
   envelope modulation and 450 ms phase reversals
 
@@ -96,6 +95,7 @@ All settings are environment variables. See
 | `SOFTMODEM_RTP_PORT` | `10000` | RTP UDP port |
 | `SOFTMODEM_PROTOCOLS` | `ALL` | allowed standard modes: `V21,V22,V22BIS`; comma-separated |
 | `SOFTMODEM_MAX_RATE` | `2400` | maximum permitted rate; highest enabled mode is selected |
+| `SOFTMODEM_V8` | `1` | enable ANSam and V.8 CM/JM/CJ family negotiation; `0` uses legacy start-up |
 | `SOFTMODEM_ALLOWED_IPS` | empty | comma-separated SIP source addresses; empty allows all |
 | `SOFTMODEM_OUTBOUND_HOST` | empty | SIP proxy/SBC address used for outgoing `ATD` calls |
 | `SOFTMODEM_OUTBOUND_PORT` | `5060` | SIP proxy/SBC UDP port |
@@ -111,9 +111,9 @@ exact IPv4 match, not a replacement for a firewall on an untrusted network.
 lower mode. `EXPERIMENTAL_QAM` explicitly enables the private 4800/9600
 loopback waveform; it is deliberately not named V.32 and is never selected by
 `ALL`. V.22bis now performs its in-band 2400/1200 selection. The V.8 codec,
-FSK transport, ANSam detector and logical automode state machine exist, but
-family selection remains disabled until the combined end-to-end fallback test
-is complete.
+FSK transport, ANSam detector and automode state machine are enabled by default.
+Simple ANS bypasses V.8, and an answering modem falls back after the ANSam
+timeout when a legacy caller does not send CM.
 
 ## Measured loopback status
 
