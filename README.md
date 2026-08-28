@@ -17,8 +17,8 @@ source code, binaries or VM images from other modem projects.
 - sequence-aware 200 ms RTP jitter buffer without synthetic concealment audio
 - G.711 A-law encoder and decoder
 - selectable V.21 at 300 bit/s, V.22 at 1200 bit/s, V.22bis at 2400 bit/s,
-  V.32 laboratory sessions at 4800 or 9600 bit/s, and the older private
-  experimental coherent QAM mode
+  V.32/V.32bis sessions through 14400 bit/s, V.34 laboratory sessions from
+  2400 through 33600 bit/s, and the older private experimental coherent QAM mode
 - 2100 Hz answer tone followed by a short guard interval
 - transparent PTY suitable for a terminal program or experimental PPP
 - V.250-style command mode with `AT`, `ATDT`, `ATDP`, `ATDL`, `ATA`, `ATH`, `ATO`, `ATE`, `ATV`,
@@ -135,9 +135,9 @@ source code, binaries or VM images from other modem projects.
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full timing recovery, adaptive
-equalisation, all SIP transaction timers, RTCP or TCP SIP. The V.34 laboratory
-DSP path is not yet integrated into the live modem session, so V.34 is not
-advertised or selected by live SIP calls.
+equalisation, echo cancellation, all SIP transaction timers, RTCP or TCP SIP.
+V.34 is advertised through V.8 and connected to the live SIP/RTP/PTY path, but
+has only been validated between two copies of this program over loss-free PCMA.
 The 4800/9600 implementation remains a clean-room laboratory waveform between
 two instances of this program. Its start-up is connected end to end, but it is
 not yet proven interoperable with an ITU-T V.32 hardware modem: carrier/timing
@@ -155,6 +155,7 @@ make
 make test
 make link-test
 make integration-test
+make integration-v34-test
 ```
 
 Run in the foreground:
@@ -200,8 +201,8 @@ All settings are environment variables. See
 | `SOFTMODEM_PUBLIC_IP` | `127.0.0.1` | address advertised in Contact and SDP |
 | `SOFTMODEM_SIP_PORT` | `5060` | SIP UDP port |
 | `SOFTMODEM_RTP_PORT` | `10000` | RTP UDP port |
-| `SOFTMODEM_PROTOCOLS` | `ALL` | allowed standard modes: `V21,V22,V22BIS,V32,V32BIS`; comma-separated |
-| `SOFTMODEM_MAX_RATE` | `2400` | maximum permitted rate; highest enabled mode is selected |
+| `SOFTMODEM_PROTOCOLS` | `ALL` | allowed modes: `V21,V22,V22BIS,V32,V32BIS,V34`; comma-separated |
+| `SOFTMODEM_MAX_RATE` | `33600` | maximum permitted rate; highest enabled mode is selected |
 | `SOFTMODEM_V8` | `1` | enable ANSam and V.8 CM/JM/CJ family negotiation; `0` uses legacy start-up |
 | `SOFTMODEM_ALLOWED_IPS` | empty | comma-separated SIP source addresses; empty allows all |
 | `SOFTMODEM_OUTBOUND_HOST` | empty | SIP proxy/SBC address used for outgoing `ATD` calls |
@@ -214,8 +215,9 @@ All settings are environment variables. See
 Identity settings reject CR and LF characters. The source allowlist is a simple
 exact IPv4 match, not a replacement for a firewall on an untrusted network.
 
-`ALL` chooses the highest mode allowed by `SOFTMODEM_MAX_RATE`; up to 14400 it
-selects V.32bis, with automatic fallback through 12000, 9600, 7200 and V.32.
+`ALL` chooses the highest mode allowed by `SOFTMODEM_MAX_RATE`. V.34 uses the
+highest permitted 2400-bit/s step through 33600; selecting `V32BIS` explicitly
+retains its automatic choice through 14400, 12000, 9600 and 7200 bit/s.
 `EXPERIMENTAL_QAM` explicitly enables the private 4800/9600
 loopback waveform; it is deliberately not named V.32 and is never selected by
 `ALL`. V.22bis now performs its in-band 2400/1200 selection. The V.8 codec,
@@ -244,6 +246,9 @@ checks `CONNECT 9600`, and verifies the PTY payload through HDLC/ARQ.
 `make integration-v32-4800-test` exercises the corresponding 4800-bit/s path.
 `make integration-v32bis-test` runs two complete processes, checks
 `CONNECT 14400`, establishes V.42 and verifies an exact PTY payload.
+`make integration-v34-test` runs the complete V.8, Phase 2, Phase 3, Phase 4,
+B1 and continuous-data path, checks `CONNECT 33600`, and verifies the exact PTY
+payload through two local SIP/RTP processes.
 The deterministic V.42-over-V.32bis test currently transfers 1000 exact bytes
 at about 400, 481, 562 and 610 application bytes/s on 7200, 9600, 12000 and
 14400-bit/s lines. This includes LAPM and continuous HDLC idle traffic.

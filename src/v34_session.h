@@ -12,6 +12,8 @@ typedef enum {
     V34_SESSION_FAILED
 } v34_session_state;
 
+#define V34_DEFERRED_RX_PACKETS 16u
+
 typedef struct {
     bool call_modem;
     uint8_t md_length_35ms;
@@ -41,6 +43,8 @@ typedef struct {
     uint8_t pending[V34_UART_QUEUE_SIZE];
     size_t pending_head;
     size_t pending_tail;
+    uint8_t deferred_rx[V34_DEFERRED_RX_PACKETS][V34_PCMA_PACKET_SAMPLES];
+    unsigned deferred_rx_count;
     v34_session_state state;
     bool phase4_tx_ready;
     bool phase4_rx_ready;

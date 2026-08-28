@@ -1,4 +1,7 @@
 *.o
+*.d
 /sip-softmodem
 /tests/test_core
 /tests/dsp_link
+/tests/test_*
+!/tests/test_*.c

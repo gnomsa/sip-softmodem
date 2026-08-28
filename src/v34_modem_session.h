@@ -32,7 +32,10 @@ typedef struct {
     size_t pending_head;
     size_t pending_tail;
     v34_modem_session_state state;
+    bool phase2_rx_ready;
+    unsigned phase2_silence_packets;
     bool training_rx_started;
+    unsigned training_silence_packets;
 } v34_modem_session;
 
 bool v34_modem_session_init(v34_modem_session *session,

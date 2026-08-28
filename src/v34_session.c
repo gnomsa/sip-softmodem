@@ -118,6 +118,27 @@ static bool fail(v34_session *s)
     return false;
 }
 
+static bool defer_rx_packet(v34_session *s,
+                            const uint8_t pcma[V34_PCMA_PACKET_SAMPLES])
+{
+    if (s->deferred_rx_count == V34_DEFERRED_RX_PACKETS)
+        return false;
+    memcpy(s->deferred_rx[s->deferred_rx_count++], pcma,
+           V34_PCMA_PACKET_SAMPLES);
+    return true;
+}
+
+static bool receive_deferred(v34_session *s)
+{
+    unsigned packet;
+    for (packet = 0; packet < s->deferred_rx_count; ++packet)
+        if (!v34_b1_data_link_receive(&s->data_link,
+                                      s->deferred_rx[packet]))
+            return false;
+    s->deferred_rx_count = 0u;
+    return true;
+}
+
 bool v34_session_init(v34_session *s, const v34_session_config *config)
 {
     v34_phase3_role local_role;
@@ -195,11 +216,23 @@ bool v34_session_receive(v34_session *s,
     }
     if ((s->state == V34_SESSION_PHASE3 && s->phase4_rx_ready) ||
         s->state == V34_SESSION_PHASE4) {
+        bool phase4_was_complete =
+            v34_phase4_receiver_complete(&s->phase4_rx);
+        if (phase4_was_complete &&
+            !v34_phase4_stream_complete(&s->phase4_tx))
+            return defer_rx_packet(s, pcma) ? true : fail(s);
         for (sample = 0; sample < V34_PCMA_PACKET_SAMPLES; ++sample)
             if (!v34_phase4_receiver_feed(&s->phase4_rx, pcma[sample]))
                 return fail(s);
         if (!start_data_link(s))
             return fail(s);
+        if (s->state == V34_SESSION_B1_DATA) {
+            if (!receive_deferred(s))
+                return fail(s);
+            if (phase4_was_complete &&
+                !v34_b1_data_link_receive(&s->data_link, pcma))
+                return fail(s);
+        }
         return true;
     }
     if (s->state == V34_SESSION_B1_DATA &&

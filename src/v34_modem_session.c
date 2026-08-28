@@ -2,14 +2,20 @@
 
 #include "pcma.h"
 
-#include <math.h>
 #include <string.h>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
 #define MODEM_QUEUE_MASK (V34_UART_QUEUE_SIZE - 1u)
+
+static bool quiet_packet(const uint8_t *pcma)
+{
+    size_t i;
+    for (i = 0; i < V34_PCMA_PACKET_SAMPLES; ++i) {
+        int sample = pcma_decode(pcma[i]);
+        if (sample < -32 || sample > 32)
+            return false;
+    }
+    return true;
+}
 
 static bool start_training(v34_modem_session *s)
 {
@@ -55,10 +61,6 @@ static bool start_training(v34_modem_session *s)
     config.rx_high_carrier = config.call_modem ? answer_high : call_high;
     if (!v34_session_init(&s->training, &config))
         return false;
-    /* INFO1a reception aligns the call modem with the answer modem's
-     * following 70 ms Phase 3 silence.  The answer modem completes its own
-     * INFO1a transmitter earlier and must still acquire the delayed call S. */
-    s->training_rx_started = config.call_modem;
     while (s->pending_head != s->pending_tail) {
         size_t end = s->pending_tail > s->pending_head ?
                      s->pending_tail : V34_UART_QUEUE_SIZE;
@@ -114,6 +116,16 @@ bool v34_modem_session_receive(v34_modem_session *s,
     if (s == NULL || pcma == NULL || s->state == V34_MODEM_SESSION_FAILED)
         return false;
     if (s->state == V34_MODEM_SESSION_PHASE2) {
+        if (!s->phase2_rx_ready) {
+            bool silence = quiet_packet(pcma);
+            if (silence) {
+                if (++s->phase2_silence_packets >= 2u)
+                    s->phase2_rx_ready = true;
+            } else {
+                s->phase2_silence_packets = 0u;
+            }
+            return true;
+        }
         v34_phase2_session_receive(&s->phase2, pcma,
                                    V34_PCMA_PACKET_SAMPLES);
         if (s->phase2.state == V34_PHASE2_SESSION_FAILED ||
@@ -124,26 +136,39 @@ bool v34_modem_session_receive(v34_modem_session *s,
         return true;
     }
     if (!s->training_rx_started) {
-        size_t i;
-        double in_phase = 0.0, quadrature = 0.0;
-        double carrier = v34_carrier_hz(
-            s->training.config.directional_symbols ?
-                s->training.config.rx_symbol_rate :
-                s->training.config.symbol_rate,
-            s->training.config.directional_symbols ?
-                s->training.config.rx_high_carrier :
-                !s->training.config.call_modem);
-        for (i = 0; i < V34_PCMA_PACKET_SAMPLES; ++i) {
-            double phase = 2.0 * M_PI * carrier * i /
-                           s->training.config.sample_rate;
-            double sample = pcma_decode(pcma[i]);
-            in_phase += sample * cos(phase);
-            quadrature += sample * sin(phase);
+        v34_phase3_receiver candidate = s->training.phase3_rx;
+        if (s->training.config.call_modem) {
+            if (quiet_packet(pcma)) {
+                ++s->training_silence_packets;
+                return true;
+            }
+            if (s->training_silence_packets < 3u) {
+                s->training_silence_packets = 0u;
+                return true;
+            }
+            {
+                uint8_t silence[V34_PCMA_PACKET_SAMPLES];
+                unsigned packet;
+                memset(silence, 0xd5, sizeof(silence));
+                for (packet = 0; packet < 3u; ++packet) {
+                    if (v34_phase3_receiver_feed(&candidate,
+                            silence, sizeof(silence)) != sizeof(silence)) {
+                        s->training_silence_packets = 0u;
+                        return true;
+                    }
+                }
+            }
         }
-        if (2.0 * hypot(in_phase, quadrature) /
-                V34_PCMA_PACKET_SAMPLES < 4000.0)
+        if (v34_phase3_receiver_feed(&candidate, pcma,
+                                     V34_PCMA_PACKET_SAMPLES) !=
+                V34_PCMA_PACKET_SAMPLES ||
+            v34_phase3_receiver_failed(&candidate)) {
+            s->training_silence_packets = 0u;
             return true;
+        }
+        s->training.phase3_rx = candidate;
         s->training_rx_started = true;
+        return true;
     }
     if (v34_session_receive(&s->training, pcma))
         return true;
