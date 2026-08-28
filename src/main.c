@@ -83,12 +83,15 @@ int main(void) {
     struct tone_detector ans_detector;tone_detector_init(&ans_detector,2100.0,160);
     struct ansam_generator ansam_tx;struct ansam_detector ansam_rx;struct v8_fsk v8tx,v8rx;struct v8_session v8s;struct v8_menu v8local={.modes=V8_MODE_V21|V8_MODE_V22|(standard_v32?V8_MODE_V32:0)};uint8_t v8_menu_bits[128],v8_rx_bits[4096];size_t v8_rx_count=0;uint64_t v8_state_started=0;
     struct at_modem at;at_init(&at);at.s0=1;at.max_speed=c.speed;
-    struct jitter jitter; jitter_reset(&jitter); uint64_t next_tx=now_ms(),call_started=0,last_rtp=0,next_ring=0,dial_started=0,next_invite=0; uint64_t media_samples=0;
+    struct jitter jitter; jitter_reset(&jitter); uint64_t next_tx=now_ms(),call_started=0,last_rtp=0,next_ring=0,dial_started=0,next_invite=0,pty_probe=0; uint64_t media_samples=0;
     while(!stopping) {
-        struct pollfd fds[]={{sip_fd,POLLIN,0},{rtp_fd,POLLIN,0},{pty_fd,POLLIN,0}};
         uint64_t before_poll=now_ms();
+        int pty_enabled=before_poll>=pty_probe;
+        struct pollfd fds[]={{sip_fd,POLLIN,0},{rtp_fd,POLLIN,0},{pty_enabled?pty_fd:-1,POLLIN,0}};
         int timeout=call?(int)(next_tx>before_poll?next_tx-before_poll:0):pending?(int)(next_ring>before_poll?next_ring-before_poll:0):dialing?(int)(next_invite>before_poll?next_invite-before_poll:0):-1;
+        if(!pty_enabled){int probe_timeout=(int)(pty_probe-before_poll);if(timeout<0||probe_timeout<timeout)timeout=probe_timeout;}
         int ready=poll(fds,ARRAY_SIZE(fds),timeout); if(ready<0){if(errno==EINTR)continue;perror("poll");break;}
+        if((fds[2].revents&POLLHUP)&&!(fds[2].revents&POLLIN))pty_probe=now_ms()+250;
         if(fds[0].revents&POLLIN) {
             char input[8193],output[4096]; struct sockaddr_in from; socklen_t fl=sizeof from;
             ssize_t n=recvfrom(sip_fd,input,sizeof input-1,0,(struct sockaddr*)&from,&fl); if(n<=0)continue; input[n]='\0';

@@ -5,19 +5,34 @@ static enum v32_std_role other(enum v32_std_role r)
     return r == V32_STD_CALL ? V32_STD_ANSWER : V32_STD_CALL;
 }
 
+static void media_init(struct v32_session *s,enum v32_std_role role,
+                       int allow_4800,int allow_9600)
+{
+    s->role=role;s->last_tx=s->last_rx=V32_STATE_A;
+    s->tx_samples=s->rx_samples=0;s->tx_symbols=s->rx_symbols=0;
+    s->tx_marking=s->rx_marking=0;
+    s->rate_tx_ready=s->rate_rx_ready=s->e_tx_ready=s->e_rx_ready=0;
+    s->remote_e=s->data_ready=0;
+    v32_line_init(&s->line);v32_line_init(&s->retrain_monitor);
+    v32_qam_init(&s->qam);v32_training_init(&s->training,role);
+    v32_startup_init(&s->startup,role,allow_4800,allow_9600);
+    v32_retrain_init(&s->retrain);s->startup.phase=V32_START_RATE_1;
+}
+
 void v32_session_init(struct v32_session *s, enum v32_std_role role,
                       int allow_4800, int allow_9600)
 {
     *s = (struct v32_session){0};
-    s->role = role;
-    s->last_tx = s->last_rx = V32_STATE_A;
-    v32_line_init(&s->line);
-    v32_line_init(&s->retrain_monitor);
-    v32_qam_init(&s->qam);
-    v32_training_init(&s->training, role);
-    v32_startup_init(&s->startup, role, allow_4800, allow_9600);
-    v32_retrain_init(&s->retrain);
-    s->startup.phase = V32_START_RATE_1;
+    media_init(s,role,allow_4800,allow_9600);
+}
+
+static void pump_pending(struct v32_session*s)
+{
+    while(v32_session_connected(s)&&s->pending_head!=s->pending_tail){
+        size_t end=s->pending_tail>s->pending_head?s->pending_tail:sizeof s->pending;
+        size_t n=v32_data_write(&s->data,s->pending+s->pending_head,end-s->pending_head);
+        s->pending_head=(s->pending_head+n)%sizeof s->pending;if(!n)break;
+    }
 }
 
 static void queue_line_symbols(struct v32_session *s, size_t count)
@@ -69,7 +84,7 @@ void v32_session_generate(struct v32_session *s, int16_t *pcm, size_t count)
 {
     if (s->retrain.state == V32_RETRAIN_RESTART) {
         int a4=s->startup.allow_4800, a9=s->startup.allow_9600;
-        v32_session_init(s,s->role,a4,a9);
+        media_init(s,s->role,a4,a9);
     }
     if (s->retrain.state == V32_RETRAIN_REQUEST || s->retrain.state == V32_RETRAIN_ACK) {
         enum v32_carrier_state states[64]; size_t n=count*2400/8000;
@@ -78,6 +93,7 @@ void v32_session_generate(struct v32_session *s, int16_t *pcm, size_t count)
         s->tx_samples+=count;return;
     }
     begin_data(s);
+    pump_pending(s);
     if (s->data_ready && s->startup.selected_rate == 9600) {
             uint8_t symbols[64]; size_t n = count * 2400 / 8000;
             for (size_t i = 0; i < n; i++) {
@@ -106,7 +122,7 @@ static int monitor_retrain(struct v32_session *s,const int16_t *pcm,size_t count
         for(size_t i=0;i<n;i++)if(v32_retrain_put(&s->retrain,states[i])){
             if(s->retrain.state==V32_RETRAIN_RESTART){
                 int a4=s->startup.allow_4800,a9=s->startup.allow_9600;
-                v32_session_init(s,s->role,a4,a9);
+                media_init(s,s->role,a4,a9);
             }
             return 1;
         }
@@ -179,9 +195,20 @@ void v32_session_receive(struct v32_session *s, const int16_t *pcm, size_t count
 }
 
 size_t v32_session_write(struct v32_session *s, const uint8_t *b, size_t n)
-{ return s->data_ready ? v32_data_write(&s->data, b, n) : 0; }
+{
+    size_t z=0;
+    while(z<n){
+        size_t next=(s->pending_tail+1)%sizeof s->pending;
+        if(next==s->pending_head)break;
+        s->pending[s->pending_tail]=b[z++];s->pending_tail=next;
+    }
+    pump_pending(s);
+    return z;
+}
 size_t v32_session_read(struct v32_session *s, uint8_t *b, size_t n)
 { return s->data_ready ? v32_data_read(&s->data, b, n) : 0; }
 int v32_session_connected(const struct v32_session *s)
 { return s->retrain.state==V32_RETRAIN_IDLE && s->data_ready && s->tx_marking >= 128 && s->rx_marking >= 128; }
 int v32_session_rate(const struct v32_session *s) { return s->startup.selected_rate; }
+size_t v32_session_pending(const struct v32_session*s)
+{return(s->pending_tail+sizeof s->pending-s->pending_head)%sizeof s->pending;}

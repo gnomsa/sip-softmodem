@@ -29,6 +29,8 @@ struct v32_session {
     enum v32_carrier_state last_tx, last_rx;
     uint64_t tx_samples, rx_samples;
     unsigned tx_symbols, rx_symbols, tx_marking, rx_marking;
+    uint8_t pending[8192];
+    size_t pending_head, pending_tail;
     int rate_tx_ready, rate_rx_ready, e_tx_ready, e_rx_ready;
     int remote_e, data_ready;
 };
@@ -42,5 +44,6 @@ size_t v32_session_write(struct v32_session *s, const uint8_t *bytes, size_t cou
 size_t v32_session_read(struct v32_session *s, uint8_t *bytes, size_t capacity);
 int v32_session_connected(const struct v32_session *s);
 int v32_session_rate(const struct v32_session *s);
+size_t v32_session_pending(const struct v32_session *s);
 
 #endif

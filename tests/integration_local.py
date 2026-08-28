@@ -57,7 +57,10 @@ def main():
             os.write(fds[0], b"ATDT123\r")
             result = read_until(fds[0], marker, 18)
             if marker not in result:
-                raise RuntimeError("caller did not connect: " + repr(result))
+                details=[]
+                for log in logs:
+                    log.flush();log.seek(0);details.append(log.read().decode(errors="replace"))
+                raise RuntimeError("caller did not connect: " + repr(result) + " logs=" + repr(details))
             answer_result = read_until(fds[1], marker, 5)
             if marker not in answer_result:
                 raise RuntimeError("answerer did not connect: " + repr(answer_result))

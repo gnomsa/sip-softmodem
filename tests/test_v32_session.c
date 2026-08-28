@@ -31,8 +31,15 @@ static void run(int allow_9600, int expected)
     assert(n >= sizeof msg && !memcmp(msg, got, sizeof msg));
     v32_session_media_gap(&a);
     assert(!v32_session_connected(&a));
+    static const uint8_t queued[]="queued-during-retrain";
+    assert(v32_session_write(&a,queued,sizeof queued)==sizeof queued);
+    assert(v32_session_pending(&a)==sizeof queued);
     for(int i=0;i<100&&(!v32_session_connected(&a)||!v32_session_connected(&b));i++)block(&a,&b);
     assert(v32_session_connected(&a)&&v32_session_connected(&b));
+    for(int i=0;i<30;i++)block(&a,&b);
+    memset(got,0,sizeof got);n=v32_session_read(&b,got,sizeof got);
+    assert(n>=sizeof queued&&!memcmp(queued,got,sizeof queued));
+    assert(v32_session_pending(&a)==0);
     memset(got,0,sizeof got);assert(v32_session_write(&b,msg,sizeof msg)==sizeof msg);
     for(int i=0;i<30;i++)block(&a,&b);
     n=v32_session_read(&a,got,sizeof got);

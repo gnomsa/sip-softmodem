@@ -46,6 +46,10 @@ source code, binaries or VM images from other modem projects.
   an active V.32 session requests in-band retraining with S, acknowledges with
   S-bar, repeats start-up without ending the SIP call, and suppresses data while
   retraining
+- an 8191-byte session queue preserves PTY/PPP output written during retraining
+  and releases it only after the new E and marking transition completes
+- a closed slave PTY is probed with a 250 ms backoff, avoiding a `POLLHUP`
+  busy-loop while no terminal program or `pppd` has the device open
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
