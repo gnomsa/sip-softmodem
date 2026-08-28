@@ -1,0 +1,11 @@
+#include "v32bis_data.h"
+#include <string.h>
+#define MASK 4095u
+static int bits_for_rate(int rate){return rate==7200?3:rate==9600?4:rate==12000?5:rate==14400?6:0;}
+int v32bis_data_init(struct v32bis_data*d,enum v32_std_role role,int rate){int bits=bits_for_rate(rate);if(!d||!bits)return-1;memset(d,0,sizeof *d);d->rate=rate;d->info_bits=bits;v32_std_scrambler_init(&d->tx_scr,role);v32_std_scrambler_init(&d->rx_descr,role==V32_STD_CALL?V32_STD_ANSWER:V32_STD_CALL);v32bis_trellis_init(&d->trellis);return v32bis_viterbi_init(&d->viterbi,rate);}
+size_t v32bis_data_write(struct v32bis_data*d,const uint8_t*b,size_t n){size_t z=0;while(z<n&&((d->tt+1)&MASK)!=d->th){d->tq[d->tt]=b[z++];d->tt=(d->tt+1)&MASK;}return z;}
+size_t v32bis_data_read(struct v32bis_data*d,uint8_t*b,size_t n){size_t z=0;while(z<n&&d->rh!=d->rt){b[z++]=d->rq[d->rh];d->rh=(d->rh+1)&MASK;}return z;}
+static int tx_bit(struct v32bis_data*d){if(!d->tx_frame_bits){if(d->th==d->tt)return 1;unsigned b=d->tq[d->th];d->th=(d->th+1)&MASK;d->tx_frame=(1u<<9)|(b<<1);d->tx_frame_bits=10;}return(d->tx_frame>>(10-d->tx_frame_bits--))&1;}
+unsigned v32bis_data_next(struct v32bis_data*d){unsigned bits=0;for(int n=0;n<d->info_bits;n++)bits=(bits<<1)|(unsigned)v32_std_scramble(&d->tx_scr,tx_bit(d));unsigned extra_bits=(unsigned)d->info_bits-2,q12=bits>>extra_bits;unsigned y12=v32bis_trellis_diff_encode(q12,d->tx_previous);d->tx_previous=y12;unsigned subset=v32bis_trellis_encode(&d->trellis,y12);return(subset<<extra_bits)|(bits&((1u<<extra_bits)-1));}
+static void uart(struct v32bis_data*d,int bit){if(!d->rx_receiving){if(!bit){d->rx_receiving=1;d->rx_bits=0;d->rx_frame=0;}return;}if(d->rx_bits<8)d->rx_frame|=(unsigned)bit<<d->rx_bits++;else{if(bit){size_t next=(d->rt+1)&MASK;if(next!=d->rh){d->rq[d->rt]=(uint8_t)d->rx_frame;d->rt=next;}}d->rx_receiving=0;}}
+int v32bis_data_put(struct v32bis_data*d,double i,double q){uint8_t payload;int z=v32bis_viterbi_put(&d->viterbi,i,q,&payload);if(z<=0)return z;unsigned eb=(unsigned)d->info_bits-2,y12=payload>>eb;int q12=v32bis_trellis_diff_decode(y12,d->rx_previous);d->rx_previous=y12;if(q12<0)return-1;unsigned bits=((unsigned)q12<<eb)|(payload&((1u<<eb)-1));for(int n=d->info_bits-1;n>=0;n--)uart(d,v32_std_descramble(&d->rx_descr,(bits>>n)&1));return 1;}
