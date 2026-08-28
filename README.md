@@ -33,6 +33,8 @@ source code, binaries or VM images from other modem projects.
   exact 256 S + 16 S-bar + 1280 TRN symbol generation (not live yet)
 - standard V.32 1800 Hz/2400-baud A/B/C/D line transport and bidirectional
   4800-bit/s data path; deterministic PCMA tests currently report zero errors
+- standard V.32 nonredundant 16-state 9600-bit/s mapping and bidirectional data
+  path; its deterministic PCMA test transfers 1024 bytes each way with zero errors
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,

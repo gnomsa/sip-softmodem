@@ -13,4 +13,6 @@ size_t v32_data_write(struct v32_data*d,const uint8_t*bytes,size_t count);
 size_t v32_data_read(struct v32_data*d,uint8_t*bytes,size_t capacity);
 enum v32_carrier_state v32_data_next_4800(struct v32_data*d);
 void v32_data_put_4800(struct v32_data*d,enum v32_carrier_state state);
+uint8_t v32_data_next_9600(struct v32_data*d);
+void v32_data_put_9600(struct v32_data*d,uint8_t symbol);
 #endif
