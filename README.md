@@ -91,6 +91,8 @@ source code, binaries or VM images from other modem projects.
 - a duplex B1/data link runs caller and answerer B1 concurrently, queues bytes
   written during training, and switches both RTP directions to data packets
   after the two B1 receivers confirm their state
+- autonomous Phase 4 PCMA streams and receivers validate J-prime, 512 TRN
+  symbols, MP, acknowledged MP-prime and E in both directions
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full timing recovery, adaptive
