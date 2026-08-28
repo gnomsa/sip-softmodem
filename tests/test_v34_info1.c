@@ -1,0 +1,46 @@
+#include "v34_info.h"
+
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+
+static unsigned bits(const uint8_t *p, unsigned first, unsigned n)
+{
+    unsigned v = 0, i;
+    for (i = 0; i < n; ++i)
+        v |= ((p[(first + i) / 8u] >> ((first + i) % 8u)) & 1u) << i;
+    return v;
+}
+
+static void put(uint8_t *p, unsigned first, unsigned n, unsigned v)
+{
+    unsigned i;
+    for (i = 0; i < n; ++i) {
+        unsigned o = first + i;
+        if (v & (1u << i)) p[o / 8u] |= (uint8_t)(1u << (o % 8u));
+        else p[o / 8u] &= (uint8_t)~(1u << (o % 8u));
+    }
+}
+
+int main(void)
+{
+    uint8_t c[V34_INFO1C_BYTES] = {0};
+    uint8_t a[V34_INFO1A_BYTES] = {0};
+
+    put(c, 0, 4, 0xf); put(c, 4, 8, 0x4e);
+    put(c, 12, 77, 0x55aa55aaU);
+    put(c, 105, 4, 0xf);
+    assert(v34_info_frame_set_crc(c, V34_INFO1C_BITS, 89, 16));
+    assert(v34_info_frame_check(c, V34_INFO1C_BITS, 89, 16));
+    c[7] ^= 1u;
+    assert(!v34_info_frame_check(c, V34_INFO1C_BITS, 89, 16));
+
+    put(a, 0, 4, 0xf); put(a, 4, 8, 0x4e);
+    put(a, 12, 38, 0x12345678U);
+    put(a, 66, 4, 0xf);
+    assert(v34_info_frame_set_crc(a, V34_INFO1A_BITS, 50, 16));
+    assert(v34_info_frame_check(a, V34_INFO1A_BITS, 50, 16));
+    assert(bits(a, 0, 4) == 0xf && bits(a, 4, 8) == 0x4e);
+    puts("v34 INFO1 framing tests: ok");
+    return 0;
+}

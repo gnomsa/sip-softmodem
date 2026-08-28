@@ -43,6 +43,52 @@ uint16_t v34_info_crc(const uint8_t *bits, size_t count)
     return crc;
 }
 
+bool v34_info_frame_set_crc(uint8_t *frame, size_t bit_count,
+                            unsigned crc_first, unsigned crc_bits)
+{
+    uint8_t input[32] = {0};
+    uint16_t crc;
+    unsigned i;
+    if (frame == NULL || crc_bits != 16u || crc_first < 12u ||
+        crc_first + crc_bits > bit_count || crc_first - 12u > sizeof(input) * 8u)
+        return false;
+    for (i = 0; i < crc_first - 12u; ++i) {
+        unsigned src = 12u + i;
+        if ((frame[src / 8u] >> (src % 8u)) & 1u)
+            input[i / 8u] |= (uint8_t)(1u << (i % 8u));
+    }
+    crc = v34_info_crc(input, crc_first - 12u);
+    for (i = 0; i < 16u; ++i) {
+        unsigned o = crc_first + i;
+        if (crc & (1u << i)) frame[o / 8u] |= (uint8_t)(1u << (o % 8u));
+        else frame[o / 8u] &= (uint8_t)~(1u << (o % 8u));
+    }
+    return true;
+}
+
+bool v34_info_frame_check(const uint8_t *frame, size_t bit_count,
+                          unsigned crc_first, unsigned crc_bits)
+{
+    uint8_t copy[32] = {0};
+    unsigned i;
+    uint16_t expected, actual = 0;
+    if (frame == NULL || crc_bits != 16u || crc_first < 12u ||
+        crc_first + crc_bits > bit_count || crc_first - 12u > sizeof(copy) * 8u)
+        return false;
+    for (i = 0; i < (bit_count + 7u) / 8u && i < sizeof(copy); ++i) copy[i] = frame[i];
+    for (i = 0; i < 16u; ++i)
+        actual |= (uint16_t)(((copy[(crc_first + i) / 8u] >> ((crc_first + i) % 8u)) & 1u) << i);
+    for (i = 0; i < 16u; ++i) copy[(crc_first + i) / 8u] &= (uint8_t)~(1u << ((crc_first + i) % 8u));
+    memset(copy, 0, sizeof(copy));
+    for (i = 0; i < crc_first - 12u; ++i) {
+        unsigned src = 12u + i;
+        if ((frame[src / 8u] >> (src % 8u)) & 1u)
+            copy[i / 8u] |= (uint8_t)(1u << (i % 8u));
+    }
+    expected = v34_info_crc(copy, crc_first - 12u);
+    return actual == expected;
+}
+
 static bool info0_fields_valid(const v34_info0 *info)
 {
     return info != NULL && info->maximum_symbol_rate_difference <= 5u &&
