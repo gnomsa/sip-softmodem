@@ -164,3 +164,57 @@ bool v34_info0_decode(const uint8_t frame[V34_INFO0_BYTES], v34_info0 *info)
     info->acknowledge = get_bits(frame, 28, 1) != 0;
     return info0_fields_valid(info);
 }
+
+static bool info1a_fields_valid(const v34_info1a *info)
+{
+    return info != NULL && info->minimum_power_reduction <= 7u &&
+           info->additional_power_reduction <= 7u &&
+           info->md_length_35ms <= 127u && info->preemphasis <= 10u &&
+           info->projected_rate_2400 <= 14u &&
+           info->answer_symbol_rate <= 5u && info->call_symbol_rate <= 5u &&
+           info->frequency_offset_002hz >= -512 &&
+           info->frequency_offset_002hz <= 511;
+}
+
+bool v34_info1a_encode(const v34_info1a *info,
+                       uint8_t frame[V34_INFO1A_BYTES])
+{
+    if (!info1a_fields_valid(info) || frame == NULL)
+        return false;
+    memset(frame, 0, V34_INFO1A_BYTES);
+    put_bits(frame, 0, 4, 0x0fu);
+    put_bits(frame, 4, 8, 0x4eu);
+    put_bits(frame, 12, 3, info->minimum_power_reduction);
+    put_bits(frame, 15, 3, info->additional_power_reduction);
+    put_bits(frame, 18, 7, info->md_length_35ms);
+    put_bits(frame, 25, 1, info->high_carrier);
+    put_bits(frame, 26, 4, info->preemphasis);
+    put_bits(frame, 30, 4, info->projected_rate_2400);
+    put_bits(frame, 34, 3, info->answer_symbol_rate);
+    put_bits(frame, 37, 3, info->call_symbol_rate);
+    put_bits(frame, 40, 10, (uint16_t)info->frequency_offset_002hz & 0x03ffu);
+    put_bits(frame, 66, 4, 0x0fu);
+    return v34_info_frame_set_crc(frame, V34_INFO1A_BITS, 50, 16);
+}
+
+bool v34_info1a_decode(const uint8_t frame[V34_INFO1A_BYTES],
+                       v34_info1a *info)
+{
+    unsigned offset;
+    if (frame == NULL || info == NULL ||
+        !v34_info_frame_check(frame, V34_INFO1A_BITS, 50, 16))
+        return false;
+    memset(info, 0, sizeof(*info));
+    info->minimum_power_reduction = (uint8_t)get_bits(frame, 12, 3);
+    info->additional_power_reduction = (uint8_t)get_bits(frame, 15, 3);
+    info->md_length_35ms = (uint8_t)get_bits(frame, 18, 7);
+    info->high_carrier = get_bits(frame, 25, 1) != 0;
+    info->preemphasis = (uint8_t)get_bits(frame, 26, 4);
+    info->projected_rate_2400 = (uint8_t)get_bits(frame, 30, 4);
+    info->answer_symbol_rate = (uint8_t)get_bits(frame, 34, 3);
+    info->call_symbol_rate = (uint8_t)get_bits(frame, 37, 3);
+    offset = get_bits(frame, 40, 10);
+    info->frequency_offset_002hz =
+        (int16_t)((offset & 0x0200u) ? (int)offset - 1024 : (int)offset);
+    return info1a_fields_valid(info);
+}

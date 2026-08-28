@@ -46,6 +46,29 @@ int main(void)
     a[0] ^= 1u;
     put(a, 66, 4, 0xe);
     assert(!v34_info_frame_check(a, V34_INFO1A_BITS, 50, 16));
+
+    {
+        const v34_info1a in = {3, 2, 47, true, 8, 14, 5, 4, -137};
+        v34_info1a out;
+        memset(a, 0, sizeof(a));
+        assert(v34_info1a_encode(&in, a));
+        assert(v34_info1a_decode(a, &out));
+        assert(out.minimum_power_reduction == 3);
+        assert(out.additional_power_reduction == 2);
+        assert(out.md_length_35ms == 47);
+        assert(out.high_carrier && out.preemphasis == 8);
+        assert(out.projected_rate_2400 == 14);
+        assert(out.answer_symbol_rate == 5 && out.call_symbol_rate == 4);
+        assert(out.frequency_offset_002hz == -137);
+        a[5] ^= 0x20u;
+        assert(!v34_info1a_decode(a, &out));
+    }
+
+    {
+        v34_info1a invalid = {0};
+        invalid.preemphasis = 11;
+        assert(!v34_info1a_encode(&invalid, a));
+    }
     puts("v34 INFO1 framing tests: ok");
     return 0;
 }
