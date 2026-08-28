@@ -118,3 +118,103 @@ double v34_probe_rx_amplitude(const v34_probe_rx *rx, unsigned tone)
     return rx != NULL && rx->ready && tone < V34_PROBE_TONES ?
         rx->amplitude[tone] : 0.0;
 }
+
+void v34_probe_detector_init(v34_probe_detector *detector)
+{
+    if (detector != NULL)
+        memset(detector, 0, sizeof(*detector));
+}
+
+static double block_amplitude(const uint8_t *pcma, unsigned frequency)
+{
+    double i = 0.0, q = 0.0;
+    size_t n;
+    for (n = 0; n < V34_PROBE_DETECT_BLOCK; ++n) {
+        double sample = pcma_decode(pcma[n]);
+        double phase = 2.0 * M_PI * frequency * n / SAMPLE_RATE;
+        i += sample * cos(phase);
+        q += sample * sin(phase);
+    }
+    return 2.0 * hypot(i, q) / V34_PROBE_DETECT_BLOCK;
+}
+
+static bool probe_block(const uint8_t *pcma)
+{
+    static const unsigned omitted[] = {900u, 1200u, 1800u, 2400u};
+    double probe_energy = 0.0, omitted_energy = 0.0;
+    unsigned i;
+    for (i = 0; i < V34_PROBE_TONES; ++i) {
+        double amplitude = block_amplitude(pcma, v34_probe_frequency[i]);
+        probe_energy += amplitude * amplitude;
+    }
+    for (i = 0; i < sizeof(omitted) / sizeof(omitted[0]); ++i) {
+        double amplitude = block_amplitude(pcma, omitted[i]);
+        omitted_energy += amplitude * amplitude;
+    }
+    return probe_energy > 21.0 * 300.0 * 300.0 &&
+           probe_energy > omitted_energy * 4.0;
+}
+
+static void classify_probe(v34_probe_detector *detector)
+{
+    double average = 0.0;
+    unsigned tone;
+    for (tone = 0; tone < V34_PROBE_TONES; ++tone)
+        average += v34_probe_rx_amplitude(&detector->measurement, tone);
+    average /= V34_PROBE_TONES;
+    detector->signal = average >= 1700.0 ? V34_PROBE_L1 : V34_PROBE_L2;
+    detector->ready = true;
+}
+
+void v34_probe_detector_process(v34_probe_detector *detector,
+                                const uint8_t *pcma, size_t sample_count)
+{
+    size_t at = 0u;
+    if (detector == NULL || pcma == NULL || detector->ready)
+        return;
+    while (at < sample_count && !detector->ready) {
+        if (detector->measuring) {
+            size_t before = detector->measurement.samples;
+            v34_probe_rx_process(&detector->measurement, pcma + at,
+                                 sample_count - at);
+            at += detector->measurement.samples - before;
+            if (v34_probe_rx_ready(&detector->measurement))
+                classify_probe(detector);
+        } else {
+            size_t room = V34_PROBE_DETECT_BLOCK - detector->scan_samples;
+            size_t take = sample_count - at < room ? sample_count - at : room;
+            memcpy(detector->scan + detector->scan_samples, pcma + at, take);
+            detector->scan_samples += take;
+            at += take;
+            if (detector->scan_samples == V34_PROBE_DETECT_BLOCK) {
+                if (probe_block(detector->scan)) {
+                    (void)v34_probe_rx_init(&detector->measurement,
+                                            V34_PROBE_L1_SAMPLES);
+                    v34_probe_rx_process(&detector->measurement,
+                                         detector->scan,
+                                         V34_PROBE_DETECT_BLOCK);
+                    detector->measuring = true;
+                }
+                detector->scan_samples = 0u;
+            }
+        }
+    }
+}
+
+bool v34_probe_detector_ready(const v34_probe_detector *detector)
+{
+    return detector != NULL && detector->ready;
+}
+
+v34_probe_signal v34_probe_detector_signal(
+    const v34_probe_detector *detector)
+{
+    return detector != NULL && detector->ready ? detector->signal :
+                                                  V34_PROBE_SILENCE;
+}
+
+const v34_probe_rx *v34_probe_detector_measurement(
+    const v34_probe_detector *detector)
+{
+    return detector != NULL && detector->ready ? &detector->measurement : NULL;
+}

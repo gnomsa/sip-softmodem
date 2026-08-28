@@ -29,6 +29,17 @@ typedef struct {
     bool ready;
 } v34_probe_rx;
 
+#define V34_PROBE_DETECT_BLOCK 160u
+
+typedef struct {
+    uint8_t scan[V34_PROBE_DETECT_BLOCK];
+    size_t scan_samples;
+    v34_probe_rx measurement;
+    v34_probe_signal signal;
+    bool measuring;
+    bool ready;
+} v34_probe_detector;
+
 extern const unsigned v34_probe_frequency[V34_PROBE_TONES];
 extern const unsigned v34_probe_phase_degrees[V34_PROBE_TONES];
 
@@ -42,5 +53,14 @@ void v34_probe_rx_process(v34_probe_rx *rx, const uint8_t *pcma,
                           size_t sample_count);
 bool v34_probe_rx_ready(const v34_probe_rx *rx);
 double v34_probe_rx_amplitude(const v34_probe_rx *rx, unsigned tone);
+
+void v34_probe_detector_init(v34_probe_detector *detector);
+void v34_probe_detector_process(v34_probe_detector *detector,
+                                const uint8_t *pcma, size_t sample_count);
+bool v34_probe_detector_ready(const v34_probe_detector *detector);
+v34_probe_signal v34_probe_detector_signal(
+    const v34_probe_detector *detector);
+const v34_probe_rx *v34_probe_detector_measurement(
+    const v34_probe_detector *detector);
 
 #endif
