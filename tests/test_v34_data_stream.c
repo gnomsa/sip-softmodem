@@ -1,5 +1,6 @@
 #include "v34_data_stream.h"
 
+#include "v34_data_decoder.h"
 #include "v34_training_rx.h"
 
 #include <assert.h>
@@ -17,11 +18,18 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
     v34_b1_stream b1;
     v34_data_stream data;
     v34_training_rx rx;
+    v34_data_decoder decoder;
     v34_scrambler expected_scrambler;
+    v34_scrambler descrambler;
+    v34_point received[4][2];
     uint8_t input[V34_MAX_SUPERFRAME_BITS];
     size_t input_count;
     size_t i;
     unsigned decoded = 0;
+    unsigned received_data_frame = 0;
+    unsigned received_mapping_frame = 0;
+    unsigned received_symbol = 0;
+    size_t received_bits = 0;
 
     assert(v34_b1_stream_init(&b1, rate, maximum_rate[rate], true,
                               trellis, expanded, true, 8000, scale));
@@ -47,6 +55,11 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
     assert(v34_data_stream_init_after_b1(&data, &b1, input, input_count));
     assert(data.frame_bits[0] ==
            v34_scramble_bit(&expected_scrambler, input[0]));
+    assert(v34_data_decoder_init(&decoder, &data.parameters,
+                                 trellis, expanded));
+    decoder.differential = b1.differential;
+    decoder.trellis = b1.trellis;
+    descrambler = b1.b1.scrambler_after;
 
     while (!v34_data_stream_complete(&data)) {
         v34_point expected = data.tx.point;
@@ -60,6 +73,38 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
             continue;
         assert(fabs(in_phase / scale - expected.re) < 1.0);
         assert(fabs(quadrature / scale - expected.im) < 1.0);
+        assert(v34_slice_iq(in_phase, quadrature, scale,
+                            &received[received_symbol / 2u]
+                                     [received_symbol % 2u]));
+        received_symbol++;
+        if (received_symbol == 8u) {
+            uint8_t v0[4];
+            uint8_t scrambled[V34_MAX_DATA_FRAME_BITS];
+            size_t scrambled_count = 0;
+            unsigned j;
+            for (j = 0; j < 4u; ++j)
+                v0[j] = (uint8_t)v34_sync_inversion(
+                    &data.geometry, received_data_frame,
+                    4u * received_mapping_frame + j);
+            assert(v34_decode_mapping_frame(
+                &decoder, received, v0,
+                v34_mapping_frame_high(&data.geometry,
+                                       received_mapping_frame),
+                scrambled, &scrambled_count));
+            for (i = 0; i < scrambled_count; ++i) {
+                assert(received_bits < input_count);
+                assert(v34_descramble_bit(&descrambler, scrambled[i]) ==
+                       input[received_bits]);
+                received_bits++;
+            }
+            received_symbol = 0;
+            received_mapping_frame++;
+            if (received_mapping_frame ==
+                data.geometry.mapping_frames_per_data_frame) {
+                received_mapping_frame = 0;
+                received_data_frame++;
+            }
+        }
         decoded++;
     }
 
@@ -68,6 +113,8 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
            (uint64_t)b1.b1.geometry.data_frames_per_superframe *
            8u * b1.b1.geometry.mapping_frames_per_data_frame);
     assert(decoded == data.symbols);
+    assert(received_bits == input_count);
+    assert(received_data_frame == data.geometry.data_frames_per_superframe);
     assert(data.active_samples == 2240u); /* One V.34 superframe is 280 ms. */
 }
 

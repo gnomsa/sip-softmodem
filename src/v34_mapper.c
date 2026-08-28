@@ -232,3 +232,82 @@ bool v34_shell_map(const v34_mapping_parameters *p,
     split_pair(a - b - d, rings, r3 / g2[d], &out[6], &out[7]);
     return true;
 }
+
+static uint64_t convolution_prefix(const uint64_t *counts,
+                                   unsigned maximum,
+                                   unsigned total,
+                                   unsigned first)
+{
+    uint64_t rank = 0;
+    unsigned index;
+
+    for (index = 0; index < first; ++index)
+        if (index <= maximum && total >= index &&
+            total - index <= maximum)
+            rank += counts[index] * counts[total - index];
+    return rank;
+}
+
+bool v34_shell_unmap(const v34_mapping_parameters *p,
+                     const uint8_t rings_in[8],
+                     bool expanded,
+                     uint8_t *bits)
+{
+    uint64_t g2[V34_MAX_G2_INDEX + 1u];
+    uint64_t g4[V34_MAX_G4_INDEX + 1u];
+    uint64_t g8[V34_MAX_G8_INDEX + 1u];
+    uint64_t z8[V34_MAX_G8_INDEX + 2u];
+    uint64_t r4;
+    uint64_t r5;
+    uint64_t r2;
+    uint64_t r3;
+    uint64_t rank;
+    uint64_t limit;
+    unsigned rings;
+    unsigned a = 0;
+    unsigned b;
+    unsigned c;
+    unsigned d;
+    unsigned e;
+    unsigned f;
+    unsigned g;
+    unsigned h;
+    unsigned index;
+
+    if (!p || !rings_in || (p->shell_bits && !bits))
+        return false;
+    rings = expanded ? p->expanded_rings : p->minimum_rings;
+    if (rings == 0u || rings > V34_MAX_RINGS ||
+        p->shell_bits > V34_MAX_SHELL_BITS)
+        return false;
+    for (index = 0; index < 8u; ++index) {
+        if (rings_in[index] >= rings)
+            return false;
+        a += rings_in[index];
+    }
+    b = rings_in[0] + rings_in[1] + rings_in[2] + rings_in[3];
+    c = rings_in[0] + rings_in[1];
+    d = rings_in[4] + rings_in[5];
+    e = c < rings ? rings_in[0] : rings - 1u - rings_in[1];
+    f = b - c < rings ? rings_in[2] : rings - 1u - rings_in[3];
+    g = d < rings ? rings_in[4] : rings - 1u - rings_in[5];
+    h = a - b - d < rings ? rings_in[6] : rings - 1u - rings_in[7];
+
+    shell_counts(rings, g2, g4, g8, z8);
+    if (c > V34_MAX_G2_INDEX || d > V34_MAX_G2_INDEX ||
+        b > V34_MAX_G4_INDEX || a > V34_MAX_G8_INDEX)
+        return false;
+    r4 = (uint64_t)f * g2[c] + e;
+    r5 = (uint64_t)h * g2[d] + g;
+    r2 = convolution_prefix(g2, V34_MAX_G2_INDEX, b, c) + r4;
+    r3 = convolution_prefix(g2, V34_MAX_G2_INDEX, a - b, d) + r5;
+    rank = z8[a] +
+           convolution_prefix(g4, V34_MAX_G4_INDEX, a, b) +
+           r3 * g4[b] + r2;
+    limit = UINT64_C(1) << p->shell_bits;
+    if (rank >= limit)
+        return false;
+    for (index = 0; index < p->shell_bits; ++index)
+        bits[index] = (uint8_t)((rank >> index) & 1u);
+    return true;
+}

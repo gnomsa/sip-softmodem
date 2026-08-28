@@ -172,6 +172,7 @@ static void check_shell_mapper(void)
 {
     v34_mapping_parameters p;
     uint8_t bits[V34_MAX_SHELL_BITS] = {0};
+    uint8_t decoded[V34_MAX_SHELL_BITS] = {0};
     uint8_t rings[8];
     unsigned value;
     unsigned bit;
@@ -192,6 +193,9 @@ static void check_shell_mapper(void)
         for (i = 0; i < 8; ++i)
             assert(rings[i] < p.minimum_rings);
         assert(shell_rank(rings, p.minimum_rings) == value);
+        assert(v34_shell_unmap(&p, rings, false, decoded));
+        for (bit = 0; bit < p.shell_bits; ++bit)
+            assert(decoded[bit] == bits[bit]);
     }
 
     assert(v34_mapping_parameters_init(&p, 79));
@@ -199,9 +203,13 @@ static void check_shell_mapper(void)
     assert(v34_shell_map(&p, bits, false, rings));
     for (i = 0; i < 8; ++i)
         assert(rings[i] < p.minimum_rings);
+    assert(v34_shell_unmap(&p, rings, false, decoded));
+    assert(memcmp(bits, decoded, p.shell_bits) == 0);
     assert(v34_shell_map(&p, bits, true, rings));
     for (i = 0; i < 8; ++i)
         assert(rings[i] < p.expanded_rings);
+    assert(v34_shell_unmap(&p, rings, true, decoded));
+    assert(memcmp(bits, decoded, p.shell_bits) == 0);
 }
 
 int main(void)

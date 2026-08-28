@@ -37,5 +37,9 @@ bool v34_shell_map(const v34_mapping_parameters *parameters,
                    const uint8_t *shell_bits,
                    bool expanded_shaping,
                    uint8_t rings[8]);
+bool v34_shell_unmap(const v34_mapping_parameters *parameters,
+                     const uint8_t rings[8],
+                     bool expanded_shaping,
+                     uint8_t *shell_bits);
 
 #endif
