@@ -72,3 +72,34 @@ bool v34_training_rx_pcma(v34_training_rx *rx, uint8_t sample,
         *magnitude = hypot(i, q);
     return true;
 }
+
+void v34_training_rx_track_carrier(v34_training_rx *rx,
+                                   double in_phase, double quadrature,
+                                   double decided_in_phase,
+                                   double decided_quadrature)
+{
+    double dot;
+    double cross;
+    double error;
+
+    if (!rx || (decided_in_phase == 0.0 && decided_quadrature == 0.0))
+        return;
+    dot = in_phase * decided_in_phase +
+          quadrature * decided_quadrature;
+    cross = quadrature * decided_in_phase -
+            in_phase * decided_quadrature;
+    error = atan2(cross, dot);
+    if (error > 0.15)
+        error = 0.15;
+    if (error < -0.15)
+        error = -0.15;
+
+    /* A second-order decision-directed loop.  The phase arm removes the
+     * current error; the slow frequency arm follows oscillator drift without
+     * chasing individual PCMA quantisation errors. */
+    rx->carrier_phase += 0.20 * error;
+    rx->carrier_step += 4e-5 * error;
+    rx->carrier_phase = fmod(rx->carrier_phase, 2.0 * M_PI);
+    if (rx->carrier_phase < 0.0)
+        rx->carrier_phase += 2.0 * M_PI;
+}

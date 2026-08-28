@@ -2,6 +2,7 @@
 #include "v34_b1_stream.h"
 
 #include <assert.h>
+#include <math.h>
 #include <stdio.h>
 
 static const unsigned maximum_rate[V34_SYMBOL_COUNT] = {
@@ -9,7 +10,8 @@ static const unsigned maximum_rate[V34_SYMBOL_COUNT] = {
 };
 
 static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
-                bool expanded, bool call_modem)
+                bool expanded, bool call_modem,
+                double phase_offset, double frequency_offset)
 {
     const double scale = 180.0;
     v34_b1_stream tx;
@@ -17,6 +19,8 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
 
     assert(v34_b1_stream_init(&tx, rate, maximum_rate[rate], call_modem,
                               trellis, expanded, call_modem, 8000, scale));
+    tx.tx.carrier_phase += phase_offset;
+    tx.tx.carrier_step += frequency_offset;
     assert(v34_b1_receiver_init(&rx, rate, maximum_rate[rate], call_modem,
                                 trellis, expanded, call_modem, 8000, scale));
     while (!v34_b1_stream_complete(&tx)) {
@@ -32,6 +36,7 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
            tx.differential.previous_rotation);
     assert(rx.descrambler.history == tx.b1.scrambler_after.history);
     assert(rx.descrambler.tap == tx.b1.scrambler_after.tap);
+    assert(fabs(rx.rx.carrier_step - tx.tx.carrier_step) < 2e-5);
 }
 
 int main(void)
@@ -39,11 +44,13 @@ int main(void)
     unsigned rate;
 
     for (rate = 0; rate < V34_SYMBOL_COUNT; ++rate) {
-        run((v34_symbol_rate)rate, V34_TRELLIS_32, false, true);
-        run((v34_symbol_rate)rate, V34_TRELLIS_32, false, false);
+        run((v34_symbol_rate)rate, V34_TRELLIS_32, false, true, 0.0, 0.0);
+        run((v34_symbol_rate)rate, V34_TRELLIS_32, false, false, 0.0, 0.0);
     }
-    run(V34_SYMBOL_3429, V34_TRELLIS_16, false, true);
-    run(V34_SYMBOL_3429, V34_TRELLIS_64, true, true);
-    puts("v34 autonomous B1 PCMA receiver: all symbol rates pass");
+    run(V34_SYMBOL_3429, V34_TRELLIS_16, false, true, 0.0, 0.0);
+    run(V34_SYMBOL_3429, V34_TRELLIS_64, true, true, 0.0, 0.0);
+    run(V34_SYMBOL_3429, V34_TRELLIS_64, true, true, 0.55, 3e-4);
+    run(V34_SYMBOL_3429, V34_TRELLIS_64, true, false, -0.65, -2.5e-4);
+    puts("v34 autonomous B1 PCMA receiver: carrier offsets pass");
     return 0;
 }

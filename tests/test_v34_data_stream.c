@@ -13,7 +13,7 @@ static const unsigned maximum_rate[V34_SYMBOL_COUNT] = {
 };
 
 static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
-                bool expanded)
+                bool expanded, double phase_offset, double frequency_offset)
 {
     const double scale = 180.0;
     v34_b1_stream b1;
@@ -35,6 +35,8 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
 
     assert(v34_b1_stream_init(&b1, rate, maximum_rate[rate], true,
                               trellis, expanded, true, 8000, scale));
+    b1.tx.carrier_phase += phase_offset;
+    b1.tx.carrier_step += frequency_offset;
     assert(v34_b1_receiver_init(&b1_receiver, rate, maximum_rate[rate],
                                 true, trellis, expanded, true, 8000, scale));
 
@@ -61,7 +63,6 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
     rx = b1_receiver.rx;
 
     while (!v34_data_stream_complete(&data)) {
-        v34_point expected = data.tx.point;
         uint8_t sample;
         double in_phase;
         double quadrature;
@@ -70,11 +71,13 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
         if (!v34_training_rx_pcma_iq(&rx, sample,
                                      &in_phase, &quadrature))
             continue;
-        assert(fabs(in_phase / scale - expected.re) < 1.0);
-        assert(fabs(quadrature / scale - expected.im) < 1.0);
         assert(v34_slice_iq(in_phase, quadrature, scale,
                             &received[received_symbol / 2u]
                                      [received_symbol % 2u]));
+        v34_training_rx_track_carrier(
+            &rx, in_phase, quadrature,
+            scale * received[received_symbol / 2u][received_symbol % 2u].re,
+            scale * received[received_symbol / 2u][received_symbol % 2u].im);
         received_symbol++;
         if (received_symbol == 8u) {
             uint8_t v0[4];
@@ -115,6 +118,7 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
     assert(received_bits == input_count);
     assert(received_data_frame == data.geometry.data_frames_per_superframe);
     assert(data.active_samples == 2240u); /* One V.34 superframe is 280 ms. */
+    assert(fabs(rx.carrier_step - data.tx.carrier_step) < 2e-5);
 }
 
 int main(void)
@@ -122,8 +126,9 @@ int main(void)
     unsigned rate;
 
     for (rate = 0; rate < V34_SYMBOL_COUNT; ++rate)
-        run((v34_symbol_rate)rate, V34_TRELLIS_32, false);
-    run(V34_SYMBOL_3429, V34_TRELLIS_64, true);
-    puts("v34 B1-to-data PCMA superframe: all symbol rates pass");
+        run((v34_symbol_rate)rate, V34_TRELLIS_32, false, 0.0, 0.0);
+    run(V34_SYMBOL_3429, V34_TRELLIS_64, true, 0.0, 0.0);
+    run(V34_SYMBOL_3429, V34_TRELLIS_64, true, 0.55, 3e-4);
+    puts("v34 B1-to-data PCMA superframe: carrier tracking passes");
     return 0;
 }
