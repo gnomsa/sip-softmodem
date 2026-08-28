@@ -63,7 +63,7 @@ def main():
                        SOFTMODEM_SIP_PORT=str(sip), SOFTMODEM_RTP_PORT=str(rtp),
                        SOFTMODEM_OUTBOUND_HOST="127.0.0.1", SOFTMODEM_OUTBOUND_PORT=str(peer),
                        SOFTMODEM_TTY=paths[index], SOFTMODEM_PROTOCOLS=protocol,
-                       SOFTMODEM_MAX_RATE=str(rate))
+                       SOFTMODEM_MAX_RATE=str(rate), SOFTMODEM_CHANNELS="1")
             logs.append(tempfile.TemporaryFile())
             procs.append(subprocess.Popen(["./sip-softmodem"], env=env,
                                           stdout=subprocess.DEVNULL, stderr=logs[-1]))

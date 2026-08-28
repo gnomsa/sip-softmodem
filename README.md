@@ -10,7 +10,7 @@ source code, binaries or VM images from other modem projects.
 
 ## Current scope
 
-- SIP over UDP, one incoming dialog
+- SIP over one UDP socket with a configurable pool of simultaneous dialogs
 - source-IP allowlist (optional)
 - SDP offer/answer with PCMA only (static RTP payload type 8)
 - RTP at 8 kHz with 20 ms packets
@@ -164,6 +164,8 @@ make integration-v34-test
 make integration-v34-all-test
 # Timed 4096-byte V.34 payload:
 make integration-v34-throughput-test
+# Four simultaneous calls on one SIP port:
+make integration-multichannel-test
 ```
 
 Run in the foreground:
@@ -189,9 +191,9 @@ picocom --baud 115200 /run/sip-softmodem/ttyMODEM0
 ```
 
 The PTY baud setting does not determine the line speed; the selected modem mode
-does.
-Only one process should own the PTY. A minimal experimental PPP server command
-after carrier establishment is:
+does. With four channels, the default base path produces `ttyMODEM0` through
+`ttyMODEM3`; each PTY must have only one serial-side owner. A minimal
+experimental PPP server command after carrier establishment is:
 
 ```sh
 sudo pppd /run/sip-softmodem/ttyMODEM0 115200 local passive noauth \
@@ -208,14 +210,15 @@ All settings are environment variables. See
 | `SOFTMODEM_BIND_IP` | `0.0.0.0` | local SIP and RTP bind address |
 | `SOFTMODEM_PUBLIC_IP` | `127.0.0.1` | address advertised in Contact and SDP |
 | `SOFTMODEM_SIP_PORT` | `5060` | SIP UDP port |
-| `SOFTMODEM_RTP_PORT` | `10000` | RTP UDP port |
+| `SOFTMODEM_RTP_PORT` | `10000` | RTP base port; channel N uses base + 2N |
+| `SOFTMODEM_CHANNELS` | `4` | simultaneous modem channels on the shared SIP socket; range 1–32 |
 | `SOFTMODEM_PROTOCOLS` | `ALL` | allowed modes: `V21,V22,V22BIS,V32,V32BIS,V34`; comma-separated |
 | `SOFTMODEM_MAX_RATE` | `33600` | maximum permitted rate; highest enabled mode is selected |
 | `SOFTMODEM_V8` | `1` | enable ANSam and V.8 CM/JM/CJ family negotiation; `0` uses legacy start-up |
 | `SOFTMODEM_ALLOWED_IPS` | empty | comma-separated SIP source addresses; empty allows all |
 | `SOFTMODEM_OUTBOUND_HOST` | empty | SIP proxy/SBC address used for outgoing `ATD` calls |
 | `SOFTMODEM_OUTBOUND_PORT` | `5060` | SIP proxy/SBC UDP port |
-| `SOFTMODEM_TTY` | `/tmp/ttySOFTMODEM0` | stable symlink to the allocated PTY |
+| `SOFTMODEM_TTY` | `/tmp/ttySOFTMODEM0` | PTY base path; trailing digits are replaced by the channel index when multichannel |
 | `SOFTMODEM_USER_AGENT` | `SIP-Softmodem/0.1` | value used in the SIP `Server` header |
 | `SOFTMODEM_SDP_ORIGIN` | `softmodem` | username in the SDP `o=` line |
 | `SOFTMODEM_SDP_NAME` | `SIP Softmodem` | text in the SDP `s=` line |
@@ -266,6 +269,10 @@ throughput independently of the negotiated raw line rate. A representative
 loss-free localhost run measured about 2505 payload bytes/s (20.0 kbit/s), or
 74.5% of the 3360 bytes/s 8N1 ceiling; this includes superframe fill and drain
 latency over the finite 4096-byte measurement.
+`make integration-multichannel-test` starts one four-channel endpoint on a
+single SIP port, places four calls concurrently, verifies four `CONNECT 33600`
+results, checks RTP ports 11000/11002/11004/11006 and compares an independent
+payload received through every server-side PTY.
 The deterministic V.42-over-V.32bis test currently transfers 1000 exact bytes
 at about 400, 481, 562 and 610 application bytes/s on 7200, 9600, 12000 and
 14400-bit/s lines. This includes LAPM and continuous HDLC idle traffic.

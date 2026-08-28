@@ -1,7 +1,7 @@
 CC ?= cc
 CFLAGS ?= -O2 -g
 CFLAGS += -std=c11 -Wall -Wextra -Wpedantic -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
-LDLIBS += -lm -lutil
+LDLIBS += -lm -lutil -pthread
 
 SRC := src/main.c src/at.c src/pcma.c src/rtp.c src/jitter.c src/sip.c src/v21.c src/v22.c src/v22bis.c src/v22_handshake.c src/v32.c src/v32_std.c src/v32bis_trellis.c src/v32bis_map.c src/v32_training.c src/v32_line.c src/v32_rate.c src/v32_e.c src/v32_data.c src/v32_qam.c src/v32_startup.c src/v32_retrain.c src/v32_session.c src/v42_hdlc.c src/v42_lapm.c src/v42_arq.c src/v42_link.c src/v42_xid.c src/v42_session.c src/v42_stream.c src/v42_v32.c src/v8.c src/v8_fsk.c src/v8_session.c src/ansam.c src/tone_detector.c src/pty.c
 SRC += src/v32bis_viterbi.c
@@ -49,7 +49,7 @@ OBJ := $(SRC:.c=.o)
 DEP := $(OBJ:.o=.d)
 TEST_HEADERS := $(wildcard src/*.h)
 
-.PHONY: all clean test link-test integration-test integration-v32-test integration-v32-4800-test integration-v32bis-test integration-v34-test integration-v34-all-test integration-v34-throughput-test
+.PHONY: all clean test link-test integration-test integration-v32-test integration-v32-4800-test integration-v32bis-test integration-v34-test integration-v34-all-test integration-v34-throughput-test integration-multichannel-test
 all: sip-softmodem
 
 src/%.o: CFLAGS += -MMD -MP
@@ -162,6 +162,9 @@ integration-v34-all-test: sip-softmodem
 integration-v34-throughput-test: sip-softmodem
 	SOFTMODEM_TEST_PROTOCOL=V34 SOFTMODEM_TEST_RATE=33600 \
 	SOFTMODEM_TEST_PAYLOAD_BYTES=4096 python3 tests/integration_local.py
+
+integration-multichannel-test: sip-softmodem
+	python3 tests/integration_multichannel.py
 
 tests/dsp_link: tests/dsp_link.c src/v21.c src/v22.c src/v22bis.c src/v22_handshake.c src/v32.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)

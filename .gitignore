@@ -1,5 +1,6 @@
 *.o
 *.d
+__pycache__/
 /sip-softmodem
 /tests/test_core
 /tests/dsp_link
