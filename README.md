@@ -84,6 +84,10 @@ source code, binaries or VM images from other modem projects.
   validates INFO0, performs the 50/40/10 ms A/B reversal sequence, and derives
   round-trip delay; its duplex test inserts 200 ms of packet buffering in each
   direction and measures the expected 400 ms round trip
+- L1/L2 line-probing DSP generates and measures all 21 specified 150 Hz-grid
+  tones from 150 through 3750 Hz with the four omitted carrier/guard bins, the
+  prescribed initial phases, a 24-period/160 ms L1 window, and a 6 dB L1/L2
+  level difference
 - normative Phase 3 S/S-bar, PP and four-point TRN symbol generation, including
   the separate call and answer scramblers, plus a PCMA training transmitter
 - Phase 4 J-prime/TRN/MP/MP-prime/E plans and a PCMA MP Type 0 receiver
