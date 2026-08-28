@@ -60,23 +60,53 @@ bool v34_trn4_phase(v34_scrambler *scrambler, uint8_t *phase_pi_6)
     return true;
 }
 
-bool v34_j4_phase(v34_scrambler *scrambler, unsigned *bit_index,
-                  unsigned *previous_rotation, uint8_t *phase_pi_6)
+static bool coded_bits4_phase(v34_scrambler *scrambler, const uint8_t *pattern,
+                              unsigned pattern_bits, bool repeat,
+                              unsigned *bit_index, unsigned *previous_rotation,
+                              uint8_t *phase_pi_6)
 {
-    static const uint8_t pattern[16] = {
-        0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1
-    };
     unsigned i1, i2, input, rotation;
     if (scrambler == NULL || bit_index == NULL || previous_rotation == NULL ||
-        phase_pi_6 == NULL)
+        phase_pi_6 == NULL || pattern == NULL || pattern_bits < 2u ||
+        (!repeat && *bit_index + 2u > pattern_bits))
         return false;
-    i1 = v34_scramble_bit(scrambler, pattern[*bit_index % 16u]);
+    i1 = v34_scramble_bit(scrambler, pattern[*bit_index % pattern_bits]);
     (*bit_index)++;
-    i2 = v34_scramble_bit(scrambler, pattern[*bit_index % 16u]);
+    i2 = v34_scramble_bit(scrambler, pattern[*bit_index % pattern_bits]);
     (*bit_index)++;
     input = 2u * i2 + i1;
     rotation = (input + *previous_rotation) & 3u;
     *previous_rotation = rotation;
     *phase_pi_6 = (uint8_t)((12u - 3u * rotation) % 12u);
     return true;
+}
+
+bool v34_j4_phase(v34_scrambler *scrambler, unsigned *bit_index,
+                  unsigned *previous_rotation, uint8_t *phase_pi_6)
+{
+    static const uint8_t pattern[16] = {
+        0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1
+    };
+    return coded_bits4_phase(scrambler, pattern, 16, true, bit_index,
+                             previous_rotation, phase_pi_6);
+}
+
+bool v34_j_prime4_phase(v34_scrambler *scrambler, unsigned *bit_index,
+                        unsigned *previous_rotation, uint8_t *phase_pi_6)
+{
+    static const uint8_t pattern[16] = {
+        1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1
+    };
+    return coded_bits4_phase(scrambler, pattern, 16, false, bit_index,
+                             previous_rotation, phase_pi_6);
+}
+
+bool v34_e4_phase(v34_scrambler *scrambler, unsigned *bit_index,
+                  unsigned *previous_rotation, uint8_t *phase_pi_6)
+{
+    static const uint8_t ones[20] = {
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    };
+    return coded_bits4_phase(scrambler, ones, 20, false, bit_index,
+                             previous_rotation, phase_pi_6);
 }

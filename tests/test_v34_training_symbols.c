@@ -50,6 +50,19 @@ int main(void)
             assert(bit_index == 16);
             assert(phase < 12 && phase % 3 == 0);
         }
+        {
+            unsigned bit_index = 0;
+            unsigned rotation = 0;
+            for (i = 0; i < 8; ++i)
+                assert(v34_j_prime4_phase(&call, &bit_index, &rotation, &phase));
+            assert(bit_index == 16);
+            assert(!v34_j_prime4_phase(&call, &bit_index, &rotation, &phase));
+            bit_index = 0;
+            for (i = 0; i < 10; ++i)
+                assert(v34_e4_phase(&call, &bit_index, &rotation, &phase));
+            assert(bit_index == 20);
+            assert(!v34_e4_phase(&call, &bit_index, &rotation, &phase));
+        }
     }
     puts("v34 S/Sbar and PP symbol tests: ok");
     return 0;

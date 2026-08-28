@@ -20,5 +20,9 @@ unsigned v34_scramble_bit(v34_scrambler *scrambler, unsigned input);
 bool v34_trn4_phase(v34_scrambler *scrambler, uint8_t *phase_pi_6);
 bool v34_j4_phase(v34_scrambler *scrambler, unsigned *bit_index,
                   unsigned *previous_rotation, uint8_t *phase_pi_6);
+bool v34_j_prime4_phase(v34_scrambler *scrambler, unsigned *bit_index,
+                        unsigned *previous_rotation, uint8_t *phase_pi_6);
+bool v34_e4_phase(v34_scrambler *scrambler, unsigned *bit_index,
+                  unsigned *previous_rotation, uint8_t *phase_pi_6);
 
 #endif
