@@ -77,6 +77,9 @@ source code, binaries or VM images from other modem projects.
   the 1800 Hz guard tone at the specified relative level. It carries every
   INFO0/INFO1 frame through PCMA while retaining fractional bit timing across
   arbitrary RTP-sized buffers
+- streaming Phase 2 A and B tone generators/detectors preserve phase across
+  packets, include the answer-side guard tone, and report 180-degree phase
+  reversals independently of carrier presence
 - normative Phase 3 S/S-bar, PP and four-point TRN symbol generation, including
   the separate call and answer scramblers, plus a PCMA training transmitter
 - Phase 4 J-prime/TRN/MP/MP-prime/E plans and a PCMA MP Type 0 receiver
