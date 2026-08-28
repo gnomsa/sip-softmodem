@@ -72,6 +72,11 @@ source code, binaries or VM images from other modem projects.
   bit and CRC framing
 - V.34 Phase 2 probing-result selection with asymmetric symbol-rate limits,
   exact rational carrier and symbol clocks, and Phase 3 call/answer plans
+- packet-streaming Phase 2 INFO transport uses 600-bit/s differential PSK on
+  the 1200 Hz call carrier or the 2400 Hz answer carrier; the latter includes
+  the 1800 Hz guard tone at the specified relative level. It carries every
+  INFO0/INFO1 frame through PCMA while retaining fractional bit timing across
+  arbitrary RTP-sized buffers
 - normative Phase 3 S/S-bar, PP and four-point TRN symbol generation, including
   the separate call and answer scramblers, plus a PCMA training transmitter
 - Phase 4 J-prime/TRN/MP/MP-prime/E plans and a PCMA MP Type 0 receiver
