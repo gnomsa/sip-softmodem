@@ -35,6 +35,9 @@ source code, binaries or VM images from other modem projects.
   4800-bit/s data path; deterministic PCMA tests currently report zero errors
 - standard V.32 nonredundant 16-state 9600-bit/s mapping and bidirectional data
   path; its deterministic PCMA test transfers 1024 bytes each way with zero errors
+- V.32 section 5.4 start-up controller covering caller/answer line states,
+  64-symbol reversals, 16-symbol silence, two-identical-rate-word validation,
+  automatic 9600/4800 intersection, E and 128-symbol final marking (not live yet)
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
