@@ -67,10 +67,13 @@ source code, binaries or VM images from other modem projects.
   intersect optional functions, including single-SREJ and 32-bit-FCS requests;
   the encoder includes the mandatory ISO/HDLC function mask and the complete
   XID information is tested inside an FCS-protected LAPM frame
+- V.34 capability model for 2400–33600 bit/s, all six standardized symbol
+  rates, directional/asymmetric rate selection, and exact INFO0 bit/CRC framing
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
-adaptive equalisation, all SIP transaction timers, RTCP, TCP SIP or V.34.
+adaptive equalisation, all SIP transaction timers, RTCP, TCP SIP or the V.34
+INFO1/data DSP path.
 The 4800/9600 implementation remains a clean-room laboratory waveform between
 two instances of this program. Its start-up is connected end to end, but it is
 not yet proven interoperable with an ITU-T V.32 hardware modem: carrier/timing
