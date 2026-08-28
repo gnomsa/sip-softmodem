@@ -1,0 +1,5 @@
+#include "v32_training.h"
+#include <stdio.h>
+#define CHECK(x) do{if(!(x)){fprintf(stderr,"V.32 training check failed at %d: %s\n",__LINE__,#x);return 1;}}while(0)
+static int role(enum v32_std_role r){struct v32_training t;v32_training_init(&t,r);for(int i=0;i<256;i++)CHECK(v32_training_next(&t)==(i&1?V32_STATE_B:V32_STATE_A));CHECK(t.segment==V32_SEG_SBAR);for(int i=0;i<16;i++)CHECK(v32_training_next(&t)==(i&1?V32_STATE_D:V32_STATE_C));CHECK(t.segment==V32_SEG_TRN);struct v32_std_scrambler expected;v32_std_scrambler_init(&expected,r);for(int i=0;i<1280;i++){int a=v32_std_scramble(&expected,1),b=v32_std_scramble(&expected,1);enum v32_carrier_state want;if(i<256)want=a?V32_STATE_C:V32_STATE_A;else{static const enum v32_carrier_state map[4]={V32_STATE_A,V32_STATE_B,V32_STATE_D,V32_STATE_C};want=map[(a<<1)|b];}CHECK(v32_training_next(&t)==want);}CHECK(t.segment==V32_SEG_RATE);return 0;}
+int main(void){if(role(V32_STD_CALL)||role(V32_STD_ANSWER))return 1;puts("V.32 S/Sbar/TRN tests passed");return 0;}

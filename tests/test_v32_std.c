@@ -1,0 +1,5 @@
+#include "v32_std.h"
+#include <stdio.h>
+#define CHECK(x) do{if(!(x)){fprintf(stderr,"V.32 primitive check failed at %d: %s\n",__LINE__,#x);return 1;}}while(0)
+static int scrambler(enum v32_std_role role){struct v32_std_scrambler tx,rx;v32_std_scrambler_init(&tx,role);v32_std_scrambler_init(&rx,role);unsigned x=1;for(int i=0;i<10000;i++){x=x*1664525u+1013904223u;int bit=(x>>31)&1,line=v32_std_scramble(&tx,bit),got=v32_std_descramble(&rx,line);if(got!=bit)return 1;}return 0;}
+int main(void){CHECK(!scrambler(V32_STD_CALL)&&!scrambler(V32_STD_ANSWER));static const unsigned expected[4][4]={{1,3,0,2},{0,1,2,3},{3,2,1,0},{2,0,3,1}};for(unsigned q=0;q<4;q++)for(unsigned p=0;p<4;p++)CHECK(v32_std_diff_encode(q,p)==expected[q][p]);int a,b,t;uint16_t both=v32_std_rate_word(1,1,0);CHECK(v32_std_rate_decode(both,&a,&b,&t)==0&&a&&b&&!t);CHECK(v32_std_e_word(9600,0)==(uint16_t)(0x888f|(1u<<6)));CHECK(v32_std_rate_decode(v32_std_rate_word(0,0,0),0,0,0)<0);puts("V.32 standard primitive tests passed");return 0;}
