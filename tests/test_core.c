@@ -1,4 +1,5 @@
 #include "pcma.h"
+#include "jitter.h"
 #include "rtp.h"
 #include "sip.h"
 #include "v21.h"
@@ -19,6 +20,12 @@ static void test_rtp(void) {
     struct rtp_sender s={42,8000,99};uint8_t payload[160]={1,2,3},wire[172];
     size_t n=rtp_build(&s,payload,sizeof payload,wire,sizeof wire);struct rtp_packet p;
     assert(n==172&&rtp_parse(wire,n,&p)==0);assert(p.payload_type==8&&p.sequence==42&&p.timestamp==8000&&p.payload_len==160);
+}
+static void test_jitter(void) {
+    struct jitter j;jitter_reset(&j);uint8_t in[160],out[160];
+    for(int i=0;i<12;i++){memset(in,i,sizeof in);assert(jitter_put(&j,(uint16_t)(100+i),in,sizeof in)==1);}
+    assert(jitter_get(&j,out,sizeof out)==160&&out[0]==0);
+    assert(jitter_get(&j,out,sizeof out)==160&&out[0]==1);
 }
 static void test_sip(void) {
     char invite[]="INVITE sip:m@host SIP/2.0\r\nVia: SIP/2.0/UDP 10.0.0.1:5060;branch=z\r\nFrom: <sip:a@x>;tag=a\r\nTo: <sip:m@host>\r\nCall-ID: test\r\nCSeq: 1 INVITE\r\nContent-Type: application/sdp\r\nContent-Length: 57\r\n\r\nv=0\r\nc=IN IP4 10.0.0.1\r\nm=audio 4000 RTP/AVP 8 0\r\n";
@@ -42,4 +49,4 @@ static void test_v21_receive(void) {
     v21_receive(&modem,samples,used);uint8_t out=0;
     assert(v21_read(&modem,&out,1)==1);assert(out==byte);
 }
-int main(void) { test_pcma();test_rtp();test_sip();test_v21_receive();puts("all core tests passed");return 0; }
+int main(void) { test_pcma();test_rtp();test_jitter();test_sip();test_v21_receive();puts("all core tests passed");return 0; }

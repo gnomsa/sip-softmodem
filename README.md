@@ -14,14 +14,15 @@ source code, binaries or VM images from other modem projects.
 - source-IP allowlist (optional)
 - SDP offer/answer with PCMA only (static RTP payload type 8)
 - RTP at 8 kHz with 20 ms packets
+- sequence-aware 200 ms RTP jitter buffer without synthetic concealment audio
 - G.711 A-law encoder and decoder
 - V.21 answer channel: TX 1650/1850 Hz, RX 980/1180 Hz, 300 bit/s, 8N1
 - 2100 Hz answer tone followed by a short guard interval
 - transparent PTY suitable for a terminal program or experimental PPP
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
-low-jitter signal and does not yet implement carrier/timing recovery, adaptive
-equalisation, SIP transaction timers, a jitter buffer, RTCP, TCP SIP, V.22 or
+low-jitter signal and does not yet implement full carrier/timing recovery,
+adaptive equalisation, all SIP transaction timers, RTCP, TCP SIP, V.22 or
 V.34. Those are planned work, not current claims.
 
 ## Build and test
