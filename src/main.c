@@ -59,6 +59,10 @@ static int source_allowed(const struct config *c,const struct sockaddr_in *from)
 static void send_sip(int fd,const struct sockaddr_in *to,const char *data,int length) {
     if(length>0) (void)sendto(fd,data,(size_t)length,0,(const struct sockaddr*)to,sizeof *to);
 }
+static void report_no_carrier(struct at_modem *at,int pty_fd) {
+    char output[64];size_t length=at_no_carrier(at,output,sizeof output);
+    (void)write(pty_fd,output,length);
+}
 
 static v34_modem_session_config v34_live_config(int answer_side,int maximum_rate)
 {
@@ -181,7 +185,7 @@ int main(void) {
             if(c.v8&&!v8_done)v8_session_advance(&v8s,20);
             if(modem_started&&c.speed==2400&&!standard_v34)v22bis_advance(&modem22bis,20);
             uint8_t inbound[160];int jitter_result=jitter_get(&jitter,inbound,sizeof inbound);
-            if(jitter_result<0&&standard_v32){v42_v32_media_gap(&modem32std);fprintf(stderr,"RTP gap: requesting V.32 retrain\n");}
+            if(jitter_result<0){if(standard_v34){v34_modem_session_media_gap(&modem34);report_no_carrier(&at,pty_fd);fprintf(stderr,"RTP gap: dropping V.34 carrier\n");call=acked=0;break;}if(standard_v32){v42_v32_media_gap(&modem32std);fprintf(stderr,"RTP gap: requesting V.32 retrain\n");}}
             if(jitter_result>0){
                 int16_t rx[160];pcma_decode_buffer(inbound,rx,160);
                 if(c.v8&&!v8_done){
@@ -204,7 +208,7 @@ int main(void) {
                     }
                 }else if(modem_started){
                     uint8_t bytes[256];size_t got;
-                    if(standard_v34){if(!v34_modem_session_receive(&modem34,inbound)){fprintf(stderr,"V.34 receive failed: session %d rx-start %d silence %u training %d tx %zu:%u rx %zu:%u/%d p4 tx/rx %llu/%llu ready %d/%d complete %d/%d failed %d b1 tx/rx %u/%u ready %d failed %d\n",modem34.state,modem34.training_rx_started,modem34.training_silence_packets,modem34.training.state,modem34.training.phase3_tx.cursor.index,modem34.training.phase3_tx.cursor.elapsed,modem34.training.phase3_rx.cursor.index,modem34.training.phase3_rx.cursor.elapsed,modem34.training.phase3_rx.failed,(unsigned long long)modem34.training.phase4_tx.symbols,(unsigned long long)modem34.training.phase4_rx.symbols,modem34.training.phase4_tx_ready,modem34.training.phase4_rx_ready,modem34.training.phase4_tx.complete,modem34.training.phase4_rx.complete,modem34.training.phase4_rx.failed,modem34.training.data_link.tx_b1.mapping_frame,modem34.training.data_link.rx_b1.mapping_frame,modem34.training.data_link.data_ready,modem34.training.data_link.failed);call=acked=0;got=0;}else got=v34_modem_session_read(&modem34,bytes,sizeof bytes);}
+                    if(standard_v34){if(!v34_modem_session_receive(&modem34,inbound)){fprintf(stderr,"V.34 receive failed: session %d rx-start %d silence %u training %d tx %zu:%u rx %zu:%u/%d p4 tx/rx %llu/%llu ready %d/%d complete %d/%d failed %d b1 tx/rx %u/%u ready %d failed %d\n",modem34.state,modem34.training_rx_started,modem34.training_silence_packets,modem34.training.state,modem34.training.phase3_tx.cursor.index,modem34.training.phase3_tx.cursor.elapsed,modem34.training.phase3_rx.cursor.index,modem34.training.phase3_rx.cursor.elapsed,modem34.training.phase3_rx.failed,(unsigned long long)modem34.training.phase4_tx.symbols,(unsigned long long)modem34.training.phase4_rx.symbols,modem34.training.phase4_tx_ready,modem34.training.phase4_rx_ready,modem34.training.phase4_tx.complete,modem34.training.phase4_rx.complete,modem34.training.phase4_rx.failed,modem34.training.data_link.tx_b1.mapping_frame,modem34.training.data_link.rx_b1.mapping_frame,modem34.training.data_link.data_ready,modem34.training.data_link.failed);report_no_carrier(&at,pty_fd);call=acked=0;got=0;}else got=v34_modem_session_read(&modem34,bytes,sizeof bytes);}
                     else if(standard_v32){v42_v32_receive(&modem32std,rx,160);got=v42_v32_read(&modem32std,bytes,sizeof bytes);}
                     else if(c.speed>=4800){v32_receive(&modem32,rx,160);got=v32_read(&modem32,bytes,sizeof bytes);}
                     else if(c.speed==2400){v22bis_receive(&modem22bis,rx,160);got=v22bis_read(&modem22bis,bytes,sizeof bytes);}
@@ -213,6 +217,7 @@ int main(void) {
                     if(got&&at.online)(void)write(pty_fd,bytes,got);
                 }
             }
+            if(!call)break;
             if(c.v8&&!v8_done&&(int)v8s.state!=v8_last_state){
                 v8_last_state=v8s.state;v8_state_started=now_ms();size_t bits=0;
                 if(v8s.state==V8_CM)bits=v8_encode_menu(&v8local,v8_menu_bits,sizeof v8_menu_bits);
@@ -233,7 +238,7 @@ int main(void) {
             }else if(!c.v8&&answer_side&&media_samples<20800)for(size_t i=0;i<160;i++){double phase=2.0*M_PI*2100.0*(media_samples+i)/8000.0;pcm[i]=(int16_t)(sin(phase)*10000.0);}
             else if(!c.v8&&answer_side&&media_samples<21400)memset(pcm,0,sizeof pcm);
             else if(!modem_started||(!answer_side&&!ans_complete))memset(pcm,0,sizeof pcm);
-            else if(standard_v34){if(!v34_modem_session_generate(&modem34,alaw)){fprintf(stderr,"V.34 generate failed\n");call=acked=0;memset(alaw,0xd5,sizeof alaw);}alaw_ready=1;}
+            else if(standard_v34){if(!v34_modem_session_generate(&modem34,alaw)){fprintf(stderr,"V.34 generate failed\n");report_no_carrier(&at,pty_fd);call=acked=0;break;}alaw_ready=1;}
             else if(standard_v32)v42_v32_generate(&modem32std,pcm,160);
             else if(c.speed>=4800)v32_generate(&modem32,pcm,160);
             else if(c.speed==2400){if(answer_side)v22bis_answer_sequence_complete(&modem22bis);v22bis_generate(&modem22bis,pcm,160);}

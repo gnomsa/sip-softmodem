@@ -123,6 +123,9 @@ int main(void)
         assert(v34_modem_session_mode(&caller, &mode));
         assert(mode.tx_rate == 33600u && mode.rx_rate == 33600u);
     }
+    v34_modem_session_media_gap(&caller);
+    assert(!v34_modem_session_connected(&caller));
+    assert(!v34_modem_session_generate(&caller, cq[0]));
     printf("v34 full modem: Phase 2/3/4/B1/data, 33600/33600, "
            "%zu + %zu bytes in %u packets\n",
            call_count, answer_count, packet);

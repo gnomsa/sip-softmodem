@@ -51,5 +51,6 @@ size_t v34_modem_session_read(v34_modem_session *session,
 bool v34_modem_session_connected(const v34_modem_session *session);
 bool v34_modem_session_mode(const v34_modem_session *session,
                             v34_mode *mode);
+void v34_modem_session_media_gap(v34_modem_session *session);
 
 #endif

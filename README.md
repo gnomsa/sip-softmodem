@@ -48,6 +48,9 @@ source code, binaries or VM images from other modem projects.
   an active V.32 session requests in-band retraining with S, acknowledges with
   S-bar, repeats start-up without ending the SIP call, and suppresses data while
   retraining
+- a confirmed RTP gap in the V.34 path invalidates the carrier immediately and
+  reports `NO CARRIER` to the PTY instead of decoding a shifted QAM stream;
+  V.34 in-band retraining remains to be implemented
 - an 8191-byte session queue preserves PTY/PPP output written during retraining
   and releases it only after the new E and marking transition completes
 - a closed slave PTY is probed with a 250 ms backoff, avoiding a `POLLHUP`

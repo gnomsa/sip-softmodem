@@ -213,3 +213,9 @@ bool v34_modem_session_mode(const v34_modem_session *s, v34_mode *mode)
     return s != NULL && mode != NULL &&
         v34_phase2_session_mode(&s->phase2, mode, NULL, NULL);
 }
+
+void v34_modem_session_media_gap(v34_modem_session *s)
+{
+    if (s != NULL)
+        s->state = V34_MODEM_SESSION_FAILED;
+}
