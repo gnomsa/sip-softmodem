@@ -9,6 +9,8 @@
 #include "v32_retrain.h"
 #include "v32_startup.h"
 #include "v32_training.h"
+#include "v32bis_data.h"
+#include "v32bis_qam.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -26,6 +28,8 @@ struct v32_session {
     struct v32_startup startup;
     struct v32_retrain retrain;
     struct v32_data data;
+    struct v32bis_data bis_data;
+    struct v32bis_qam bis_qam;
     enum v32_carrier_state last_tx, last_rx;
     uint64_t tx_samples, rx_samples;
     unsigned tx_symbols, rx_symbols, tx_marking, rx_marking;
@@ -37,6 +41,7 @@ struct v32_session {
 
 void v32_session_init(struct v32_session *s, enum v32_std_role role,
                       int allow_4800, int allow_9600);
+void v32bis_session_init(struct v32_session*s,enum v32_std_role role,int max_rate);
 void v32_session_generate(struct v32_session *s, int16_t *pcm, size_t count);
 void v32_session_receive(struct v32_session *s, const int16_t *pcm, size_t count);
 void v32_session_media_gap(struct v32_session *s);

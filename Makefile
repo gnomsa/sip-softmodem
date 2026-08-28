@@ -9,7 +9,7 @@ SRC += src/v32bis_data.c
 SRC += src/v32bis_qam.c
 OBJ := $(SRC:.c=.o)
 
-.PHONY: all clean test link-test integration-test integration-v32-test integration-v32-4800-test
+.PHONY: all clean test link-test integration-test integration-v32-test integration-v32-4800-test integration-v32bis-test
 all: sip-softmodem
 
 sip-softmodem: $(OBJ)
@@ -60,6 +60,9 @@ integration-v32-test: sip-softmodem
 
 integration-v32-4800-test: sip-softmodem
 	SOFTMODEM_TEST_PROTOCOL=V32 SOFTMODEM_TEST_RATE=4800 python3 tests/integration_local.py
+
+integration-v32bis-test: sip-softmodem
+	SOFTMODEM_TEST_PROTOCOL=V32BIS SOFTMODEM_TEST_RATE=14400 python3 tests/integration_local.py
 
 tests/dsp_link: tests/dsp_link.c src/v21.c src/v22.c src/v22bis.c src/v22_handshake.c src/v32.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
@@ -133,7 +136,7 @@ tests/test_v32_startup_link: tests/test_v32_startup_link.c src/v32_std.c src/v32
 tests/test_v32_retrain: tests/test_v32_retrain.c src/v32_retrain.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
-tests/test_v32_session: tests/test_v32_session.c src/v32_std.c src/v32_training.c src/v32_line.c src/v32_rate.c src/v32_e.c src/v32_startup.c src/v32_retrain.c src/v32_data.c src/v32_qam.c src/v32_session.c src/pcma.c
+tests/test_v32_session: tests/test_v32_session.c src/v32_std.c src/v32bis_trellis.c src/v32bis_map.c src/v32bis_viterbi.c src/v32bis_data.c src/v32bis_qam.c src/v32_training.c src/v32_line.c src/v32_rate.c src/v32_e.c src/v32_startup.c src/v32_retrain.c src/v32_data.c src/v32_qam.c src/v32_session.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
 tests/test_v42_hdlc: tests/test_v42_hdlc.c src/v42_hdlc.c
@@ -157,7 +160,7 @@ tests/test_v42_session: tests/test_v42_session.c src/v42_hdlc.c src/v42_lapm.c s
 tests/test_v42_stream: tests/test_v42_stream.c src/v42_hdlc.c src/v42_stream.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
-tests/test_v42_v32: tests/test_v42_v32.c src/v32_std.c src/v32_training.c src/v32_line.c src/v32_rate.c src/v32_e.c src/v32_startup.c src/v32_retrain.c src/v32_data.c src/v32_qam.c src/v32_session.c src/v42_hdlc.c src/v42_lapm.c src/v42_arq.c src/v42_link.c src/v42_xid.c src/v42_session.c src/v42_stream.c src/v42_v32.c src/pcma.c
+tests/test_v42_v32: tests/test_v42_v32.c src/v32_std.c src/v32bis_trellis.c src/v32bis_map.c src/v32bis_viterbi.c src/v32bis_data.c src/v32bis_qam.c src/v32_training.c src/v32_line.c src/v32_rate.c src/v32_e.c src/v32_startup.c src/v32_retrain.c src/v32_data.c src/v32_qam.c src/v32_session.c src/v42_hdlc.c src/v42_lapm.c src/v42_arq.c src/v42_link.c src/v42_xid.c src/v42_session.c src/v42_stream.c src/v42_v32.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
 clean:

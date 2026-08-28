@@ -33,6 +33,7 @@ struct v32_startup {
     int allow_9600;
     unsigned allowed_rates;
     int selected_rate;
+    int bis_selected;
     uint16_t local_rate_word;
     uint16_t remote_rate_word;
     unsigned identical_rate_words;

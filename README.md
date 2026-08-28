@@ -36,6 +36,8 @@ source code, binaries or VM images from other modem projects.
   4800-bit/s data path; deterministic PCMA tests currently report zero errors
 - standard V.32 nonredundant 16-state 9600-bit/s mapping and bidirectional data
   path; its deterministic PCMA test transfers 1024 bytes each way with zero errors
+- V.32bis rate negotiation, 8-state trellis coding, soft-decision Viterbi and
+  normative 16/32/64/128-point mappings at 7200/9600/12000/14400 bit/s
 - V.32 section 5.4 start-up controller covering caller/answer line states,
   64-symbol reversals, 16-symbol silence, two-identical-rate-word validation,
   automatic 9600/4800 intersection, E and 128-symbol final marking
@@ -50,9 +52,8 @@ source code, binaries or VM images from other modem projects.
   and releases it only after the new E and marking transition completes
 - a closed slave PTY is probed with a 250 ms backoff, avoiding a `POLLHUP`
   busy-loop while no terminal program or `pppd` has the device open
-- initial V.42 LAPM/HDLC primitives implement the 16-bit FCS, LSB-first flags,
-  zero insertion/removal after five contiguous one bits, and rejection of
-  corrupted frames (not connected to the live data path yet)
+- V.42 LAPM/HDLC is connected to the V.32/V.32bis media path, including XID,
+  SABME/UA, modulo-128 ARQ, T401 retries and REJ recovery
 - LAPM modulo-128 control fields encode and decode I, RR, RNR, REJ and SREJ
   frames with DLCI 0, C/R, N(S), N(R) and P/F fields
 - an eight-frame LAPM ARQ window implements cumulative RR acknowledgement,
@@ -132,7 +133,7 @@ All settings are environment variables. See
 | `SOFTMODEM_PUBLIC_IP` | `127.0.0.1` | address advertised in Contact and SDP |
 | `SOFTMODEM_SIP_PORT` | `5060` | SIP UDP port |
 | `SOFTMODEM_RTP_PORT` | `10000` | RTP UDP port |
-| `SOFTMODEM_PROTOCOLS` | `ALL` | allowed standard modes: `V21,V22,V22BIS,V32`; comma-separated |
+| `SOFTMODEM_PROTOCOLS` | `ALL` | allowed standard modes: `V21,V22,V22BIS,V32,V32BIS`; comma-separated |
 | `SOFTMODEM_MAX_RATE` | `2400` | maximum permitted rate; highest enabled mode is selected |
 | `SOFTMODEM_V8` | `1` | enable ANSam and V.8 CM/JM/CJ family negotiation; `0` uses legacy start-up |
 | `SOFTMODEM_ALLOWED_IPS` | empty | comma-separated SIP source addresses; empty allows all |
@@ -146,8 +147,9 @@ All settings are environment variables. See
 Identity settings reject CR and LF characters. The source allowlist is a simple
 exact IPv4 match, not a replacement for a firewall on an untrusted network.
 
-`ALL` chooses the highest mode allowed by `SOFTMODEM_MAX_RATE`; with a maximum
-of 9600 or higher that is currently V.32 at 9600. `EXPERIMENTAL_QAM` explicitly enables the private 4800/9600
+`ALL` chooses the highest mode allowed by `SOFTMODEM_MAX_RATE`; up to 14400 it
+selects V.32bis, with automatic fallback through 12000, 9600, 7200 and V.32.
+`EXPERIMENTAL_QAM` explicitly enables the private 4800/9600
 loopback waveform; it is deliberately not named V.32 and is never selected by
 `ALL`. V.22bis now performs its in-band 2400/1200 selection. The V.8 codec,
 FSK transport, ANSam detector and automode state machine are enabled by default.
@@ -173,9 +175,11 @@ sockets.
 the composite V.32 path, negotiates a V.42 LAPM session (XID and SABME/UA),
 checks `CONNECT 9600`, and verifies the PTY payload through HDLC/ARQ.
 `make integration-v32-4800-test` exercises the corresponding 4800-bit/s path.
-The deterministic V.42-over-V.32 test currently transfers 1000 exact bytes at
-about 454.5 application bytes/s on the 9600-bit/s line.  This is an initial,
-unoptimized result and includes LAPM and continuous HDLC idle traffic.
+`make integration-v32bis-test` runs two complete processes, checks
+`CONNECT 14400`, establishes V.42 and verifies an exact PTY payload.
+The deterministic V.42-over-V.32bis test currently transfers 1000 exact bytes
+at about 400, 481, 562 and 610 application bytes/s on 7200, 9600, 12000 and
+14400-bit/s lines. This includes LAPM and continuous HDLC idle traffic.
 
 The V.42 implementation includes 16-bit FCS, bit stuffing, modulo-128 I and S
 frames, cumulative acknowledgements, REJ retransmission, T401 retries, XID

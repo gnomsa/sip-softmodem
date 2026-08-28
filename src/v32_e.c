@@ -27,8 +27,8 @@ int v32_e_rx_put(struct v32_e_rx *r, enum v32_carrier_state state,
     r->word |= (uint16_t)a << r->bits++;
     r->word |= (uint16_t)b << r->bits++;
     if (r->bits < 16) return 0;
-    int decoded_rate, decoded_trellis;
-    int valid = v32_std_e_decode(r->word, &decoded_rate, &decoded_trellis) == 0;
+    int decoded_rate, decoded_trellis, bis;
+    int valid = v32bis_e_decode(r->word, &decoded_rate, &decoded_trellis, &bis) == 0;
     if (valid && r->word == r->last) r->repeats++;
     else r->repeats = valid ? 1 : 0;
     r->last = r->word; r->word = 0; r->bits = 0;

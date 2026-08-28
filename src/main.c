@@ -42,7 +42,7 @@ static const char *env_or(const char *name,const char *fallback) { const char *v
 static uint16_t env_port(const char *name,uint16_t fallback) { long v=strtol(env_or(name,"0"),NULL,10); return v>0&&v<65536?(uint16_t)v:fallback; }
 static int safe_text(const char *s) { return s && !strpbrk(s,"\r\n"); }
 static int token_enabled(const char*list,const char*name){if(!strcasecmp(list,"ALL"))return 1;char copy[256];snprintf(copy,sizeof copy,"%s",list);char*save=NULL;for(char*p=strtok_r(copy,",",&save);p;p=strtok_r(NULL,",",&save)){while(*p==' ')p++;if(!strcasecmp(p,name))return 1;}return 0;}
-static int select_speed(const char*protocols,int max_rate){if(token_enabled(protocols,"V32")&&max_rate>=9600)return 9600;if(token_enabled(protocols,"V32")&&max_rate>=4800)return 4800;if(token_enabled(protocols,"V22BIS")&&max_rate>=2400)return 2400;if(token_enabled(protocols,"V22")&&max_rate>=1200)return 1200;if(token_enabled(protocols,"V21")&&max_rate>=300)return 300;if(strcasecmp(protocols,"ALL")&&token_enabled(protocols,"EXPERIMENTAL_QAM")&&max_rate>=9600)return 9600;if(strcasecmp(protocols,"ALL")&&token_enabled(protocols,"EXPERIMENTAL_QAM")&&max_rate>=4800)return 4800;return 0;}
+static int select_speed(const char*protocols,int max_rate){if(token_enabled(protocols,"V32BIS")){if(max_rate>=14400)return 14400;if(max_rate>=12000)return 12000;if(max_rate>=9600)return 9600;if(max_rate>=7200)return 7200;if(max_rate>=4800)return 4800;}if(token_enabled(protocols,"V32")&&max_rate>=9600)return 9600;if(token_enabled(protocols,"V32")&&max_rate>=4800)return 4800;if(token_enabled(protocols,"V22BIS")&&max_rate>=2400)return 2400;if(token_enabled(protocols,"V22")&&max_rate>=1200)return 1200;if(token_enabled(protocols,"V21")&&max_rate>=300)return 300;if(strcasecmp(protocols,"ALL")&&token_enabled(protocols,"EXPERIMENTAL_QAM")&&max_rate>=9600)return 9600;if(strcasecmp(protocols,"ALL")&&token_enabled(protocols,"EXPERIMENTAL_QAM")&&max_rate>=4800)return 4800;return 0;}
 static uint64_t now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC,&t); return (uint64_t)t.tv_sec*1000+t.tv_nsec/1000000; }
 static int udp_bind(const char *ip,uint16_t port) {
     int fd=socket(AF_INET,SOCK_DGRAM,0); if(fd<0)return -1; int one=1; setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,&one,sizeof one);
@@ -69,8 +69,9 @@ int main(void) {
         .outbound_port=env_port("SOFTMODEM_OUTBOUND_PORT",5060), .protocols=env_or("SOFTMODEM_PROTOCOLS","ALL"),
         .max_rate=atoi(env_or("SOFTMODEM_MAX_RATE","33600")), .v8=atoi(env_or("SOFTMODEM_V8","1")), .speed=0};
     if(!safe_text(c.user_agent)||!safe_text(c.sdp_origin)||!safe_text(c.sdp_name)){fprintf(stderr,"invalid CR/LF in identity setting\n");return 2;}
-    c.speed=select_speed(c.protocols,c.max_rate);if(!c.speed){fprintf(stderr,"no implemented protocol enabled (V21,V22,V22BIS,V32; optional EXPERIMENTAL_QAM)\n");return 2;}
-    int standard_v32=token_enabled(c.protocols,"V32")&&c.speed>=4800;
+    c.speed=select_speed(c.protocols,c.max_rate);if(!c.speed){fprintf(stderr,"no implemented protocol enabled (V21,V22,V22BIS,V32,V32BIS; optional EXPERIMENTAL_QAM)\n");return 2;}
+    int standard_v32bis=token_enabled(c.protocols,"V32BIS")&&c.speed>=7200;
+    int standard_v32=(standard_v32bis||token_enabled(c.protocols,"V32"))&&c.speed>=4800;
     int sip_fd=udp_bind(c.bind_ip,c.sip_port),rtp_fd=udp_bind(c.bind_ip,c.rtp_port); char slave[256]; int pty_fd=pty_open_link(c.tty_path,slave,sizeof slave);
     if(sip_fd<0||rtp_fd<0||pty_fd<0){perror("startup");return 1;} fcntl(pty_fd,F_SETFL,fcntl(pty_fd,F_GETFL)|O_NONBLOCK);
     signal(SIGINT,on_signal);signal(SIGTERM,on_signal); srand((unsigned)(time(NULL)^getpid()));
@@ -80,7 +81,7 @@ int main(void) {
     struct sip_request pending_req;char remote_ip[64]="";uint16_t remote_port=0;
     char dialog_id[256]="", tag[32],last_ok[4096]="",last_ring[2048]=""; int last_ok_len=0,last_ring_len=0; snprintf(tag,sizeof tag,"%08x",(unsigned)rand());
     char out_uri[256]="",out_invite[4096]="",out_via[256]="",out_from[256]="",out_contact[256]="";int out_len=0;
-    struct v21 modem; struct v22 modem22; struct v22bis modem22bis; struct v32 modem32; struct v42_v32 modem32std; v21_init(&modem);v22_init(&modem22);v22bis_init(&modem22bis);v32_init(&modem32,c.speed>=9600?9600:4800);v42_v32_init(&modem32std,V32_STD_CALL,1,c.speed>=9600); struct rtp_sender tx={(uint16_t)rand(),(uint32_t)rand(),(uint32_t)rand()};
+    struct v21 modem; struct v22 modem22; struct v22bis modem22bis; struct v32 modem32; struct v42_v32 modem32std; v21_init(&modem);v22_init(&modem22);v22bis_init(&modem22bis);v32_init(&modem32,c.speed>=9600?9600:4800);if(standard_v32bis)v42_v32_init_rate(&modem32std,V32_STD_CALL,c.speed);else v42_v32_init(&modem32std,V32_STD_CALL,1,c.speed>=9600); struct rtp_sender tx={(uint16_t)rand(),(uint32_t)rand(),(uint32_t)rand()};
     struct tone_detector ans_detector;tone_detector_init(&ans_detector,2100.0,160);
     struct ansam_generator ansam_tx;struct ansam_detector ansam_rx;struct v8_fsk v8tx,v8rx;struct v8_session v8s;struct v8_menu v8local={.modes=V8_MODE_V21|V8_MODE_V22|(standard_v32?V8_MODE_V32:0)};uint8_t v8_menu_bits[128],v8_rx_bits[4096];size_t v8_rx_count=0;uint64_t v8_state_started=0;
     struct at_modem at;at_init(&at);at.s0=1;at.max_speed=c.speed;
@@ -106,7 +107,7 @@ int main(void) {
                     if(sip_pcma_endpoint(sr.body,rip,sizeof rip,&rport)<0) continue;
                     peer_rtp.sin_family=AF_INET; peer_rtp.sin_port=htons(rport); if(inet_pton(AF_INET,rip,&peer_rtp.sin_addr)!=1) continue;
                     char ack[2048]; int z=sip_make_uac_request(ack,sizeof ack,"ACK",out_uri,out_via,out_from,sr.to,dialog_id,1,out_contact,c.user_agent,"");
-                    send_sip(sip_fd,&out_peer,ack,z); dialing=0; call=acked=1; answer_side=0;ans_observed=ans_complete=0;tone_detector_init(&ans_detector,2100.0,160);ansam_generator_init(&ansam_tx);ansam_detector_init(&ansam_rx);v8_fsk_init(&v8tx,0);v8_fsk_init(&v8rx,1);v8_session_init(&v8s,V8_CALL_DCE,&v8local);v8_rx_count=0;v8_last_state=-1;v8_done=!c.v8;modem_started=!c.v8;connect_reported=0; media_samples=0; call_started=now_ms(); next_tx=call_started; last_rtp=0; jitter_reset(&jitter); v21_init(&modem); v22_init(&modem22); v22bis_init(&modem22bis); v32_init(&modem32,c.speed>=9600?9600:4800);v42_v32_init(&modem32std,V32_STD_CALL,1,c.speed>=9600); v21_set_answer_role(&modem,0); v22_set_answer_role(&modem22,0); v22bis_set_answer_role(&modem22bis,0);if(c.speed==2400&&!c.v8)v22bis_start_handshake(&modem22bis,0);
+                    send_sip(sip_fd,&out_peer,ack,z); dialing=0; call=acked=1; answer_side=0;ans_observed=ans_complete=0;tone_detector_init(&ans_detector,2100.0,160);ansam_generator_init(&ansam_tx);ansam_detector_init(&ansam_rx);v8_fsk_init(&v8tx,0);v8_fsk_init(&v8rx,1);v8_session_init(&v8s,V8_CALL_DCE,&v8local);v8_rx_count=0;v8_last_state=-1;v8_done=!c.v8;modem_started=!c.v8;connect_reported=0; media_samples=0; call_started=now_ms(); next_tx=call_started; last_rtp=0; jitter_reset(&jitter); v21_init(&modem); v22_init(&modem22); v22bis_init(&modem22bis); v32_init(&modem32,c.speed>=9600?9600:4800);if(standard_v32bis)v42_v32_init_rate(&modem32std,V32_STD_CALL,c.speed);else v42_v32_init(&modem32std,V32_STD_CALL,1,c.speed>=9600); v21_set_answer_role(&modem,0); v22_set_answer_role(&modem22,0); v22bis_set_answer_role(&modem22bis,0);if(c.speed==2400&&!c.v8)v22bis_start_handshake(&modem22bis,0);
                 }
                 continue;
             }
@@ -146,7 +147,7 @@ int main(void) {
             v8_fsk_init(&v8tx,1);v8_fsk_init(&v8rx,0);v8_session_init(&v8s,V8_ANSWER_DCE,&v8local);
             v8_rx_count=0;v8_last_state=-1;v8_done=!c.v8;modem_started=!c.v8;connect_reported=0;media_samples=0;
             call_started=now_ms();last_rtp=0;next_tx=call_started;jitter_reset(&jitter);
-            v21_init(&modem);v22_init(&modem22);v22bis_init(&modem22bis);v32_init(&modem32,c.speed>=9600?9600:4800);v42_v32_init(&modem32std,V32_STD_ANSWER,1,c.speed>=9600);
+            v21_init(&modem);v22_init(&modem22);v22bis_init(&modem22bis);v32_init(&modem32,c.speed>=9600?9600:4800);if(standard_v32bis)v42_v32_init_rate(&modem32std,V32_STD_ANSWER,c.speed);else v42_v32_init(&modem32std,V32_STD_ANSWER,1,c.speed>=9600);
             if(c.speed==2400&&!c.v8)v22bis_start_handshake(&modem22bis,1);
             fprintf(stderr,"answering RTP %s:%u at %d bit/s%s\n",remote_ip,remote_port,c.speed,c.v8?" with V.8":"");
         }

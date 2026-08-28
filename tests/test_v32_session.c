@@ -47,9 +47,21 @@ static void run(int allow_9600, int expected)
     printf("V.32 composite PCMA session: CONNECT %d, retrain and exact payload\n", v32_session_rate(&a));
 }
 
+static void run_bis(int rate)
+{
+    struct v32_session a,b;v32bis_session_init(&a,V32_STD_CALL,rate);v32bis_session_init(&b,V32_STD_ANSWER,rate);
+    for(int i=0;i<100&&!v32_session_connected(&a);i++)block(&a,&b);
+    assert(v32_session_connected(&a)&&v32_session_connected(&b));assert(v32_session_rate(&a)==rate&&v32_session_rate(&b)==rate);
+    uint8_t source[256],got[300]={0};for(size_t i=0;i<sizeof source;i++)source[i]=(uint8_t)(i*41u+5u);assert(v32_session_write(&a,source,sizeof source)==sizeof source);
+    for(int i=0;i<100;i++)block(&a,&b);
+    size_t n=v32_session_read(&b,got,sizeof got);assert(n>=sizeof source&&!memcmp(source,got,sizeof source));
+    printf("V.32bis composite PCMA session: CONNECT %d and exact payload\n",rate);
+}
+
 int main(void)
 {
     run(0, 4800);
     run(1, 9600);
+    run_bis(7200);run_bis(9600);run_bis(12000);run_bis(14400);
     return 0;
 }

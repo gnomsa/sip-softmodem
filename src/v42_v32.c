@@ -7,6 +7,11 @@ void v42_v32_init(struct v42_v32*m,enum v32_std_role role,int a4,int a9)
     memset(m,0,sizeof *m);v32_session_init(&m->physical,role,a4,a9);
     v42_session_init(&m->lapm,role==V32_STD_CALL,0);v42_stream_init(&m->stream);
 }
+void v42_v32_init_rate(struct v42_v32*m,enum v32_std_role role,int max_rate)
+{
+    memset(m,0,sizeof *m);if(max_rate>=7200)v32bis_session_init(&m->physical,role,max_rate);else v32_session_init(&m->physical,role,1,0);
+    v42_session_init(&m->lapm,role==V32_STD_CALL,0);v42_stream_init(&m->stream);
+}
 static void pump_user(struct v42_v32*m)
 {
     while(m->pending_head!=m->pending_tail&&m->lapm.state==V42_SESSION_CONNECTED){
@@ -23,7 +28,7 @@ static void pump_frames(struct v42_v32*m)
 void v42_v32_generate(struct v42_v32*m,int16_t*pcm,size_t count)
 {
     if(v32_session_connected(&m->physical)){v42_session_advance(&m->lapm,(unsigned)(count/8));pump_user(m);pump_frames(m);
-        uint8_t wire[16];v42_stream_tx_bytes(&m->stream,wire,sizeof wire);(void)v32_session_write(&m->physical,wire,sizeof wire);}
+        uint8_t wire[32];size_t z=(size_t)v32_session_rate(&m->physical)/500;if(z<8)z=8;if(z>sizeof wire)z=sizeof wire;v42_stream_tx_bytes(&m->stream,wire,z);(void)v32_session_write(&m->physical,wire,z);}
     v32_session_generate(&m->physical,pcm,count);
 }
 void v42_v32_receive(struct v42_v32*m,const int16_t*pcm,size_t count)

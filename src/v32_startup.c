@@ -91,6 +91,7 @@ int v32_startup_rate_word(struct v32_startup *s, uint16_t word)
         s->selected_rate=v32_highest_rate(s->allowed_rates&remote_rates);
     else s->selected_rate = s->allow_9600 && r9600 ? 9600 :
                             s->allow_4800 && r4800 ? 4800 : 0;
+    s->bis_selected=bis&&s->selected_rate>=7200;
     if (!s->selected_rate) { enter(s, V32_START_FAILED, 0); return -1; }
     enter(s, V32_START_E, 16);
     return s->selected_rate;
