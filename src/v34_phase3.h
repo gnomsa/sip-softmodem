@@ -23,7 +23,18 @@ typedef struct {
     size_t count;
 } v34_phase3_plan;
 
+typedef struct {
+    const v34_phase3_plan *plan;
+    size_t index;
+    uint32_t elapsed;
+    bool complete;
+} v34_phase3_cursor;
+
 bool v34_phase3_build_tx_plan(v34_phase3_role role, uint8_t md_length_35ms,
                               v34_phase3_plan *plan);
+bool v34_phase3_cursor_init(v34_phase3_cursor *cursor,
+                            const v34_phase3_plan *plan);
+const v34_phase3_event *v34_phase3_current(const v34_phase3_cursor *cursor);
+bool v34_phase3_advance(v34_phase3_cursor *cursor, uint32_t units);
 
 #endif
