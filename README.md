@@ -68,12 +68,18 @@ source code, binaries or VM images from other modem projects.
   the encoder includes the mandatory ISO/HDLC function mask and the complete
   XID information is tested inside an FCS-protected LAPM frame
 - V.34 capability model for 2400–33600 bit/s, all six standardized symbol
-  rates, directional/asymmetric rate selection, and exact INFO0 bit/CRC framing
+  rates, directional/asymmetric rate selection, and exact INFO0/INFO1a/INFO1c
+  bit and CRC framing
+- V.34 Phase 2 probing-result selection with asymmetric symbol-rate limits,
+  exact rational carrier and symbol clocks, and Phase 3 call/answer plans
+- normative Phase 3 S/S-bar, PP and four-point TRN symbol generation, including
+  the separate call and answer scramblers, plus a PCMA training transmitter
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
-adaptive equalisation, all SIP transaction timers, RTCP, TCP SIP or the V.34
-INFO1/data DSP path.
+adaptive equalisation, all SIP transaction timers, RTCP or TCP SIP. The V.34
+training receiver, streaming Phase 3 controller, Phase 4 and data DSP path are
+not implemented yet, so V.34 is not advertised or selected by live SIP calls.
 The 4800/9600 implementation remains a clean-room laboratory waveform between
 two instances of this program. Its start-up is connected end to end, but it is
 not yet proven interoperable with an ITU-T V.32 hardware modem: carrier/timing
