@@ -28,6 +28,9 @@ def raw_open(path):
 
 
 def main():
+    protocol = os.environ.get("SOFTMODEM_TEST_PROTOCOL", "V22BIS")
+    rate = int(os.environ.get("SOFTMODEM_TEST_RATE", "2400"))
+    marker = f"CONNECT {rate}".encode()
     with tempfile.TemporaryDirectory(prefix="softmodem-test-") as root:
         paths = [os.path.join(root, "a"), os.path.join(root, "b")]
         procs = []
@@ -37,8 +40,8 @@ def main():
             env.update(SOFTMODEM_BIND_IP="127.0.0.1", SOFTMODEM_PUBLIC_IP="127.0.0.1",
                        SOFTMODEM_SIP_PORT=str(sip), SOFTMODEM_RTP_PORT=str(rtp),
                        SOFTMODEM_OUTBOUND_HOST="127.0.0.1", SOFTMODEM_OUTBOUND_PORT=str(peer),
-                       SOFTMODEM_TTY=paths[index], SOFTMODEM_PROTOCOLS="V22BIS",
-                       SOFTMODEM_MAX_RATE="2400")
+                       SOFTMODEM_TTY=paths[index], SOFTMODEM_PROTOCOLS=protocol,
+                       SOFTMODEM_MAX_RATE=str(rate))
             logs.append(tempfile.TemporaryFile())
             procs.append(subprocess.Popen(["./sip-softmodem"], env=env,
                                           stdout=subprocess.DEVNULL, stderr=logs[-1]))
@@ -52,10 +55,13 @@ def main():
                     raise RuntimeError("softmodem startup failed")
             fds = [raw_open(path) for path in paths]
             os.write(fds[0], b"ATDT123\r")
-            result = read_until(fds[0], b"CONNECT 2400")
-            if b"CONNECT 2400" not in result:
+            result = read_until(fds[0], marker, 18)
+            if marker not in result:
                 raise RuntimeError("caller did not connect: " + repr(result))
-            payload = b"hello-over-v22bis\r\n"
+            answer_result = read_until(fds[1], marker, 5)
+            if marker not in answer_result:
+                raise RuntimeError("answerer did not connect: " + repr(answer_result))
+            payload = b"hello-over-" + protocol.lower().encode() + b"\r\n"
             os.write(fds[0], payload)
             received = read_until(fds[1], payload, 5)
             if payload not in received:
@@ -65,7 +71,7 @@ def main():
                 content = log.read().decode(errors="replace")
                 if "V.8 selected" not in content:
                     raise RuntimeError("V.8 was not selected: " + content)
-            print("local SIP/RTP/PTY integration: CONNECT 2400, payload received exactly")
+            print(f"local SIP/RTP/PTY integration: CONNECT {rate}, payload received exactly")
         finally:
             for fd in fds:
                 os.close(fd)

@@ -17,7 +17,8 @@ source code, binaries or VM images from other modem projects.
 - sequence-aware 200 ms RTP jitter buffer without synthetic concealment audio
 - G.711 A-law encoder and decoder
 - selectable V.21 at 300 bit/s, V.22 at 1200 bit/s, V.22bis at 2400 bit/s,
-  and experimental coherent QAM at 4800 or 9600 bit/s
+  V.32 laboratory sessions at 4800 or 9600 bit/s, and the older private
+  experimental coherent QAM mode
 - 2100 Hz answer tone followed by a short guard interval
 - transparent PTY suitable for a terminal program or experimental PPP
 - V.250-style command mode with `AT`, `ATDT`, `ATDP`, `ATDL`, `ATA`, `ATH`, `ATO`, `ATE`, `ATV`,
@@ -37,15 +38,19 @@ source code, binaries or VM images from other modem projects.
   path; its deterministic PCMA test transfers 1024 bytes each way with zero errors
 - V.32 section 5.4 start-up controller covering caller/answer line states,
   64-symbol reversals, 16-symbol silence, two-identical-rate-word validation,
-  automatic 9600/4800 intersection, E and 128-symbol final marking (not live yet)
+  automatic 9600/4800 intersection, E and 128-symbol final marking
+- composite V.32 media session connected to SIP/RTP after V.8; the local
+  two-process integration test reaches `CONNECT 9600` and transfers an exact
+  payload through both PTYs
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
 adaptive equalisation, all SIP transaction timers, RTCP, TCP SIP or V.34.
-The 4800/9600 implementation is a clean-room laboratory waveform between two
-instances of this program. It is not yet an interoperable ITU-T V.32 modem:
-trellis coding, echo cancellation and adaptive equalisation remain to be
-implemented. V.8 still needs ANSam and end-to-end fallback validation.
+The 4800/9600 implementation remains a clean-room laboratory waveform between
+two instances of this program. Its start-up is connected end to end, but it is
+not yet proven interoperable with an ITU-T V.32 hardware modem: carrier/timing
+recovery, echo cancellation, adaptive equalisation, retraining and the complete
+E transition remain to be implemented and tested on physical telephone paths.
 
 ## Build and test
 
@@ -102,7 +107,7 @@ All settings are environment variables. See
 | `SOFTMODEM_PUBLIC_IP` | `127.0.0.1` | address advertised in Contact and SDP |
 | `SOFTMODEM_SIP_PORT` | `5060` | SIP UDP port |
 | `SOFTMODEM_RTP_PORT` | `10000` | RTP UDP port |
-| `SOFTMODEM_PROTOCOLS` | `ALL` | allowed standard modes: `V21,V22,V22BIS`; comma-separated |
+| `SOFTMODEM_PROTOCOLS` | `ALL` | allowed standard modes: `V21,V22,V22BIS,V32`; comma-separated |
 | `SOFTMODEM_MAX_RATE` | `2400` | maximum permitted rate; highest enabled mode is selected |
 | `SOFTMODEM_V8` | `1` | enable ANSam and V.8 CM/JM/CJ family negotiation; `0` uses legacy start-up |
 | `SOFTMODEM_ALLOWED_IPS` | empty | comma-separated SIP source addresses; empty allows all |
@@ -116,8 +121,8 @@ All settings are environment variables. See
 Identity settings reject CR and LF characters. The source allowlist is a simple
 exact IPv4 match, not a replacement for a firewall on an untrusted network.
 
-`ALL` currently chooses 2400. Setting the maximum to 1200 or 300 selects a
-lower mode. `EXPERIMENTAL_QAM` explicitly enables the private 4800/9600
+`ALL` chooses the highest mode allowed by `SOFTMODEM_MAX_RATE`; with a maximum
+of 9600 or higher that is currently V.32 at 9600. `EXPERIMENTAL_QAM` explicitly enables the private 4800/9600
 loopback waveform; it is deliberately not named V.32 and is never selected by
 `ALL`. V.22bis now performs its in-band 2400/1200 selection. The V.8 codec,
 FSK transport, ANSam detector and automode state machine are enabled by default.
@@ -138,6 +143,9 @@ compatibility with a telephone-network or hardware modem.
 ports, dials with `ATDT`, negotiates V.22bis, checks `CONNECT 2400` and verifies
 an exact payload through both PTYs. It needs permission to open local UDP
 sockets.
+
+`make integration-v32-test` performs the same full-process test with V.8 and
+the composite V.32 path, checks `CONNECT 9600`, and verifies the PTY payload.
 
 ## Install as a service
 
