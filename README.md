@@ -28,6 +28,8 @@ source code, binaries or VM images from other modem projects.
   selection and 1200 fallback
 - V.8 CM/JM/CJ framing, capability intersection and V.21(L/H) FSK transport;
   these components are tested but not yet enabled in the live call path
+- V.8 ANSam generation and detection through G.711 A-law, including 15 Hz
+  envelope modulation and 450 ms phase reversals
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
@@ -109,8 +111,9 @@ exact IPv4 match, not a replacement for a firewall on an untrusted network.
 lower mode. `EXPERIMENTAL_QAM` explicitly enables the private 4800/9600
 loopback waveform; it is deliberately not named V.32 and is never selected by
 `ALL`. V.22bis now performs its in-band 2400/1200 selection. The V.8 codec,
-FSK transport and logical automode state machine exist, but family selection
-remains disabled until ANSam detection and end-to-end fallback are complete.
+FSK transport, ANSam detector and logical automode state machine exist, but
+family selection remains disabled until the combined end-to-end fallback test
+is complete.
 
 ## Measured loopback status
 
