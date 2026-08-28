@@ -41,6 +41,12 @@ int sip_parse(char *m, struct sip_request *o) {
     return (!o->via[0] || !o->from[0] || !o->to[0] || !o->call_id[0] || !o->cseq[0]) ? -1 : 0;
 }
 
+int sip_parse_response(char*m,struct sip_response*o){if(!m||!o)return-1;memset(o,0,sizeof *o);char*e=strstr(m,"\r\n");if(!e)return-1;*e=0;if(sscanf(m,"SIP/2.0 %d %63[^\r\n]",&o->status,o->reason)!=2)return-1;char*line=e+2,*body=strstr(line,"\r\n\r\n");if(!body)return-1;*body=0;o->body=body+4;while(*line){char*next=strstr(line,"\r\n");size_t len=next?(size_t)(next-line):strlen(line);char*colon=memchr(line,':',len);if(colon){size_t nn=(size_t)(colon-line);const char*v=colon+1;size_t vn=len-nn-1;
+#define RFIELD(name,member) if(nn==strlen(name)&&!strncasecmp(line,name,nn))trim_copy(o->member,sizeof o->member,v,vn)
+RFIELD("Via",via);else RFIELD("From",from);else RFIELD("To",to);else RFIELD("Call-ID",call_id);else RFIELD("CSeq",cseq);else RFIELD("Contact",contact);
+#undef RFIELD
+}if(!next)break;line=next+2;}return o->status>=100&&o->status<=699?0:-1;}
+
 int sip_pcma_endpoint(const char *sdp,char *addr,size_t cap,uint16_t *port) {
     if (!sdp || !addr || !port) return -1;
     addr[0]='\0'; *port=0; int pcma=0;
@@ -82,3 +88,6 @@ int sip_make_sdp(char *out,size_t cap,const char *address,uint16_t port,
         "a=ptime:20\r\na=sendrecv\r\n",origin,address,session_name,address,port);
     return n<0 || (size_t)n>=cap ? -1 : n;
 }
+
+int sip_make_uac_request(char*out,size_t cap,const char*method,const char*uri,const char*via,
+ const char*from,const char*to,const char*call_id,unsigned cseq,const char*contact,const char*ua,const char*body){if(!body)body="";int n=snprintf(out,cap,"%s %s SIP/2.0\r\nVia: %s\r\nMax-Forwards: 70\r\nFrom: %s\r\nTo: %s\r\nCall-ID: %s\r\nCSeq: %u %s\r\nContact: <%s>\r\nUser-Agent: %s\r\n%sContent-Length: %zu\r\n\r\n%s",method,uri,via,from,to,call_id,cseq,method,contact,ua,*body?"Content-Type: application/sdp\r\n":"",strlen(body),body);return n<0||(size_t)n>=cap?-1:n;}

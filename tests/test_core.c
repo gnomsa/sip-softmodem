@@ -35,6 +35,8 @@ static void test_sip(void) {
     struct sip_request r;assert(sip_parse(invite,&r)==0);char ip[64];uint16_t port;assert(sip_pcma_endpoint(r.body,ip,sizeof ip,&port)==0);assert(!strcmp(ip,"10.0.0.1")&&port==4000);
     char sdp[512];assert(sip_make_sdp(sdp,sizeof sdp,"10.0.0.2",10000,"alice","Lab Modem")>0);assert(strstr(sdp,"o=alice ")&&strstr(sdp,"s=Lab Modem"));
     char response[2048];assert(sip_make_response(response,sizeof response,&r,200,"OK","tag","sip:m@10.0.0.2","Custom-UA",sdp)>0);assert(strstr(response,"Server: Custom-UA"));
+    char request[2048];assert(sip_make_uac_request(request,sizeof request,"INVITE","sip:123@10.0.0.1","SIP/2.0/UDP 10.0.0.2:5060;branch=z","<sip:m@10.0.0.2>;tag=f","<sip:123@10.0.0.1>","out-call",1,"sip:m@10.0.0.2","UA",sdp)>0);assert(strstr(request,"INVITE sip:123@10.0.0.1 SIP/2.0"));
+    char wire[]="SIP/2.0 486 Busy Here\r\nVia: SIP/2.0/UDP x;branch=z\r\nFrom: <sip:a@x>;tag=a\r\nTo: <sip:b@y>;tag=b\r\nCall-ID: out\r\nCSeq: 1 INVITE\r\nContent-Length: 0\r\n\r\n";struct sip_response sr;assert(sip_parse_response(wire,&sr)==0&&sr.status==486&&!strcmp(sr.call_id,"out"));
 }
 static void test_v21_receive(void) {
     struct v21 modem; v21_init(&modem);
