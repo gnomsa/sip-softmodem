@@ -23,6 +23,26 @@ int main(void)
     assert(v34_s_phase(127, false, &phase) && phase == 3);
     assert(v34_s_phase(0, true, &phase) && phase == 6);
     assert(v34_s_phase(15, true, &phase) && phase == 9);
+    {
+        v34_scrambler call, answer;
+        unsigned bit;
+        v34_scrambler_init(&call, true);
+        for (i = 0; i < 18; ++i)
+            assert(v34_scramble_bit(&call, 1) == 1);
+        bit = v34_scramble_bit(&call, 1);
+        assert(bit == 0);
+        v34_scrambler_init(&answer, false);
+        for (i = 0; i < 5; ++i)
+            assert(v34_scramble_bit(&answer, 1) == 1);
+        assert(v34_scramble_bit(&answer, 1) == 0);
+        v34_scrambler_init(&call, true);
+        for (i = 0; i < 9; ++i) {
+            assert(v34_trn4_phase(&call, &phase));
+            assert(phase == 3);
+        }
+        assert(v34_trn4_phase(&call, &phase));
+        assert(phase == 0);
+    }
     puts("v34 S/Sbar and PP symbol tests: ok");
     return 0;
 }
