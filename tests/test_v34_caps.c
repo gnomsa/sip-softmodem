@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <math.h>
 
 static void test_rates(void)
 {
@@ -51,6 +52,13 @@ static void test_symbols(void)
         assert(info->mandatory == ((V34_SYMBOL_MANDATORY_MASK & V34_SYMBOL_BIT(i)) != 0));
     }
     assert(v34_get_symbol_info(V34_SYMBOL_COUNT) == NULL);
+    assert(fabs(v34_symbol_baud(V34_SYMBOL_2743) - 19200.0 / 7.0) < 1e-9);
+    assert(fabs(v34_carrier_hz(V34_SYMBOL_2400, false) - 1600.0) < 1e-9);
+    assert(fabs(v34_carrier_hz(V34_SYMBOL_2400, true) - 1800.0) < 1e-9);
+    assert(fabs(v34_carrier_hz(V34_SYMBOL_3000, false) - 1800.0) < 1e-9);
+    assert(fabs(v34_carrier_hz(V34_SYMBOL_3000, true) - 2000.0) < 1e-9);
+    assert(fabs(v34_carrier_hz(V34_SYMBOL_3429, false) - 96000.0 / 49.0) < 1e-9);
+    assert(fabs(v34_carrier_hz(V34_SYMBOL_3429, true) - 96000.0 / 49.0) < 1e-9);
 }
 
 static void test_asymmetric_negotiation(void)

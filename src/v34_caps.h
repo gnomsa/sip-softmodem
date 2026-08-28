@@ -57,6 +57,8 @@ uint16_t v34_rates_up_to(unsigned maximum);
 unsigned v34_highest_rate(uint16_t mask);
 bool v34_rate_supported(uint16_t mask, unsigned rate);
 const v34_symbol_info *v34_get_symbol_info(v34_symbol_rate rate);
+double v34_symbol_baud(v34_symbol_rate rate);
+double v34_carrier_hz(v34_symbol_rate rate, bool high_carrier);
 bool v34_negotiate(const v34_capabilities *local,
                    const v34_capabilities *remote,
                    unsigned maximum,

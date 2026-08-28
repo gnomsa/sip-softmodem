@@ -52,6 +52,26 @@ const v34_symbol_info *v34_get_symbol_info(v34_symbol_rate rate)
     return &symbol_table[rate];
 }
 
+double v34_symbol_baud(v34_symbol_rate rate)
+{
+    const v34_symbol_info *info = v34_get_symbol_info(rate);
+    if (info == NULL)
+        return 0.0;
+    return 2400.0 * info->rate_num / info->rate_den;
+}
+
+double v34_carrier_hz(v34_symbol_rate rate, bool high_carrier)
+{
+    const v34_symbol_info *info = v34_get_symbol_info(rate);
+    double baud;
+    if (info == NULL)
+        return 0.0;
+    baud = v34_symbol_baud(rate);
+    if (high_carrier)
+        return baud * info->high_carrier_num / info->high_carrier_den;
+    return baud * info->low_carrier_num / info->low_carrier_den;
+}
+
 static bool select_symbol(uint8_t mask, v34_symbol_rate *selected)
 {
     int i;
