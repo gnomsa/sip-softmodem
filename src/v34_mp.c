@@ -1,0 +1,10 @@
+#include "v34_mp.h"
+#include "v34_caps.h"
+#include "v34_info.h"
+#include <string.h>
+static unsigned getb(const uint8_t *p,unsigned o,unsigned n){unsigned v=0,i;for(i=0;i<n;i++)v|=((p[(o+i)/8]>>((o+i)%8))&1u)<<i;return v;}
+static void putb(uint8_t*p,unsigned o,unsigned n,unsigned v){unsigned i;for(i=0;i<n;i++){uint8_t m=(uint8_t)(1u<<((o+i)%8));if(v&(1u<<i))p[(o+i)/8]|=m;else p[(o+i)/8]&=(uint8_t)~m;}}
+static uint16_t crc48(const uint8_t *f){uint8_t b[6]={0};unsigned j=0,i;for(i=18;i<=33;i++,j++)putb(b,j,1,getb(f,i,1));for(i=35;i<=50;i++,j++)putb(b,j,1,getb(f,i,1));for(i=52;i<=67;i++,j++)putb(b,j,1,getb(f,i,1));return v34_info_crc(b,48);}
+static bool valid(const v34_mp0*m){return m&&m->call_to_answer_rate_2400>=1&&m->call_to_answer_rate_2400<=14&&m->answer_to_call_rate_2400>=1&&m->answer_to_call_rate_2400<=14&&m->trellis_encoder<=2&&(m->rate_mask&~V34_RATE_ALL_MASK)==0&&m->rate_mask!=0;}
+bool v34_mp0_encode(const v34_mp0*m,uint8_t f[V34_MP0_BYTES]){if(!valid(m)||!f)return false;memset(f,0,V34_MP0_BYTES);putb(f,0,17,0x1ffffu);putb(f,20,4,m->call_to_answer_rate_2400);putb(f,24,4,m->answer_to_call_rate_2400);putb(f,28,1,m->auxiliary_channel);putb(f,29,2,m->trellis_encoder);putb(f,31,1,m->nonlinear_encoder);putb(f,32,1,m->expanded_shaping);putb(f,33,1,m->acknowledge);putb(f,35,14,m->rate_mask);putb(f,50,1,m->asymmetric_rates);putb(f,69,16,crc48(f));return true;}
+bool v34_mp0_decode(const uint8_t f[V34_MP0_BYTES],v34_mp0*m){if(!f||!m||getb(f,0,17)!=0x1ffffu||getb(f,17,1)||getb(f,18,1)||getb(f,19,1)||getb(f,34,1)||getb(f,49,1)||getb(f,51,1)||getb(f,52,16)||getb(f,68,1)||getb(f,85,3)||getb(f,69,16)!=crc48(f))return false;memset(m,0,sizeof(*m));m->call_to_answer_rate_2400=(uint8_t)getb(f,20,4);m->answer_to_call_rate_2400=(uint8_t)getb(f,24,4);m->auxiliary_channel=getb(f,28,1)!=0;m->trellis_encoder=(uint8_t)getb(f,29,2);m->nonlinear_encoder=getb(f,31,1)!=0;m->expanded_shaping=getb(f,32,1)!=0;m->acknowledge=getb(f,33,1)!=0;m->rate_mask=(uint16_t)getb(f,35,14);m->asymmetric_rates=getb(f,50,1)!=0;return valid(m);}
