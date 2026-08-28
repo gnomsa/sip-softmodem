@@ -97,6 +97,9 @@ source code, binaries or VM images from other modem projects.
 - a duplex probing controller sequences answer L1/L2, call L1/L2 and INFO1c,
   then selects the asymmetric mode and returns INFO1a; transmit and receive
   cursors remain independent across ten packets of simulated media latency
+- one packet-streaming Phase 2 session now chains the initial 75 ms/INFO0/A/B
+  ranging procedure, the final 10 ms answer tone, both line probes and the
+  INFO1 exchange without an externally timed stage transition
 - normative Phase 3 S/S-bar, PP and four-point TRN symbol generation, including
   the separate call and answer scramblers, plus a PCMA training transmitter
 - Phase 4 J-prime/TRN/MP/MP-prime/E plans and a PCMA MP Type 0 receiver

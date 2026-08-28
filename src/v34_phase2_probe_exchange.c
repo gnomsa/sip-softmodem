@@ -72,8 +72,14 @@ static void generate_one(v34_phase2_probe_exchange *exchange, uint8_t *sample)
         if (++exchange->tx_stage_samples == L2_SAMPLES) {
             exchange->tx_stage_samples = 0u;
             if (exchange->role == V34_INFO_CALL_MODEM) {
-                if (!start_info(exchange, V34_PHASE2_PROBE_TX_INFO1C))
+                if (!start_info(exchange, V34_PHASE2_PROBE_TX_INFO1C)) {
                     exchange->rx_state = V34_PHASE2_PROBE_RX_FAILED;
+                } else {
+                    exchange->rx_state = V34_PHASE2_PROBE_RX_INFO1A;
+                    v34_info_modem_rx_init(&exchange->info_rx,
+                                           V34_INFO_ANSWER_MODEM,
+                                           V34_INFO1A_BITS);
+                }
             } else {
                 exchange->tx_state = V34_PHASE2_PROBE_TX_WAIT;
             }
@@ -122,9 +128,7 @@ static void finish_remote_l2(v34_phase2_probe_exchange *exchange)
     exchange->local_info1c_ready = true;
     if (exchange->role == V34_INFO_CALL_MODEM) {
         start_local_probe(exchange);
-        exchange->rx_state = V34_PHASE2_PROBE_RX_INFO1A;
-        v34_info_modem_rx_init(&exchange->info_rx,
-                               V34_INFO_ANSWER_MODEM, V34_INFO1A_BITS);
+        exchange->rx_state = V34_PHASE2_PROBE_RX_WAIT_INFO1A;
     } else {
         exchange->rx_state = V34_PHASE2_PROBE_RX_INFO1C;
         v34_info_modem_rx_init(&exchange->info_rx,
@@ -179,14 +183,10 @@ static void receive_one(v34_phase2_probe_exchange *exchange, uint8_t sample)
     case V34_PHASE2_PROBE_RX_L2:
         v34_probe_detector_process(&exchange->probe_rx, &sample, 1u);
         if (v34_probe_detector_ready(&exchange->probe_rx)) {
-            v34_probe_signal signal =
-                v34_probe_detector_signal(&exchange->probe_rx);
-            if (exchange->rx_state == V34_PHASE2_PROBE_RX_L1 &&
-                signal == V34_PROBE_L1) {
+            if (exchange->rx_state == V34_PHASE2_PROBE_RX_L1) {
                 exchange->rx_state = V34_PHASE2_PROBE_RX_L2;
                 v34_probe_detector_init(&exchange->probe_rx);
-            } else if (exchange->rx_state == V34_PHASE2_PROBE_RX_L2 &&
-                       signal == V34_PROBE_L2) {
+            } else if (exchange->rx_state == V34_PHASE2_PROBE_RX_L2) {
                 exchange->remote_probe =
                     *v34_probe_detector_measurement(&exchange->probe_rx);
                 exchange->rx_tail_samples =
