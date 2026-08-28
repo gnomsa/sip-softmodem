@@ -12,9 +12,11 @@ void v32_session_init(struct v32_session *s, enum v32_std_role role,
     s->role = role;
     s->last_tx = s->last_rx = V32_STATE_A;
     v32_line_init(&s->line);
+    v32_line_init(&s->retrain_monitor);
     v32_qam_init(&s->qam);
     v32_training_init(&s->training, role);
     v32_startup_init(&s->startup, role, allow_4800, allow_9600);
+    v32_retrain_init(&s->retrain);
     s->startup.phase = V32_START_RATE_1;
 }
 
@@ -65,6 +67,16 @@ static void begin_data(struct v32_session *s)
 
 void v32_session_generate(struct v32_session *s, int16_t *pcm, size_t count)
 {
+    if (s->retrain.state == V32_RETRAIN_RESTART) {
+        int a4=s->startup.allow_4800, a9=s->startup.allow_9600;
+        v32_session_init(s,s->role,a4,a9);
+    }
+    if (s->retrain.state == V32_RETRAIN_REQUEST || s->retrain.state == V32_RETRAIN_ACK) {
+        enum v32_carrier_state states[64]; size_t n=count*2400/8000;
+        for(size_t i=0;i<n;i++)states[i]=v32_retrain_next(&s->retrain);
+        (void)v32_line_write(&s->line,states,n);v32_line_generate(&s->line,pcm,count);
+        s->tx_samples+=count;return;
+    }
     begin_data(s);
     if (s->data_ready && s->startup.selected_rate == 9600) {
             uint8_t symbols[64]; size_t n = count * 2400 / 8000;
@@ -79,6 +91,26 @@ void v32_session_generate(struct v32_session *s, int16_t *pcm, size_t count)
         v32_line_generate(&s->line, pcm, count);
     }
     s->tx_samples += count;
+}
+
+void v32_session_media_gap(struct v32_session *s)
+{
+    if(v32_session_connected(s))v32_retrain_request(&s->retrain);
+}
+
+static int monitor_retrain(struct v32_session *s,const int16_t *pcm,size_t count)
+{
+    if(!v32_session_connected(s) && s->retrain.state==V32_RETRAIN_IDLE)return 0;
+    enum v32_carrier_state states[128];v32_line_receive(&s->retrain_monitor,pcm,count);
+    size_t n;while((n=v32_line_read(&s->retrain_monitor,states,128))!=0)
+        for(size_t i=0;i<n;i++)if(v32_retrain_put(&s->retrain,states[i])){
+            if(s->retrain.state==V32_RETRAIN_RESTART){
+                int a4=s->startup.allow_4800,a9=s->startup.allow_9600;
+                v32_session_init(s,s->role,a4,a9);
+            }
+            return 1;
+        }
+    return s->retrain.state!=V32_RETRAIN_IDLE;
 }
 
 static void consume_line(struct v32_session *s)
@@ -128,6 +160,7 @@ static void consume_line(struct v32_session *s)
 
 void v32_session_receive(struct v32_session *s, const int16_t *pcm, size_t count)
 {
+    if(monitor_retrain(s,pcm,count)){s->rx_samples+=count;return;}
     begin_data(s);
     if (s->data_ready && s->startup.selected_rate == 9600) {
         uint8_t symbols[128];
@@ -150,5 +183,5 @@ size_t v32_session_write(struct v32_session *s, const uint8_t *b, size_t n)
 size_t v32_session_read(struct v32_session *s, uint8_t *b, size_t n)
 { return s->data_ready ? v32_data_read(&s->data, b, n) : 0; }
 int v32_session_connected(const struct v32_session *s)
-{ return s->data_ready && s->tx_marking >= 128 && s->rx_marking >= 128; }
+{ return s->retrain.state==V32_RETRAIN_IDLE && s->data_ready && s->tx_marking >= 128 && s->rx_marking >= 128; }
 int v32_session_rate(const struct v32_session *s) { return s->startup.selected_rate; }

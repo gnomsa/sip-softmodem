@@ -29,6 +29,13 @@ static void test_jitter(void) {
     for(int i=0;i<12;i++){memset(in,i,sizeof in);assert(jitter_put(&j,(uint16_t)(100+i),in,sizeof in)==1);}
     assert(jitter_get(&j,out,sizeof out)==160&&out[0]==0);
     assert(jitter_get(&j,out,sizeof out)==160&&out[0]==1);
+    struct jitter loss;jitter_reset(&loss);
+    for(int i=0;i<12;i++){if(i==3)continue;memset(in,i,sizeof in);assert(jitter_put(&loss,(uint16_t)(200+i),in,sizeof in)==1);}
+    for(int i=0;i<3;i++)assert(jitter_get(&loss,out,sizeof out)==160&&out[0]==i);
+    assert(jitter_get(&loss,out,sizeof out)==0);
+    assert(jitter_get(&loss,out,sizeof out)==0);
+    assert(jitter_get(&loss,out,sizeof out)==-1);
+    assert(jitter_get(&loss,out,sizeof out)==160&&out[0]==4);
 }
 static void test_sip(void) {
     char invite[]="INVITE sip:m@host SIP/2.0\r\nVia: SIP/2.0/UDP 10.0.0.1:5060;branch=z\r\nFrom: <sip:a@x>;tag=a\r\nTo: <sip:m@host>\r\nCall-ID: test\r\nCSeq: 1 INVITE\r\nContent-Type: application/sdp\r\nContent-Length: 57\r\n\r\nv=0\r\nc=IN IP4 10.0.0.1\r\nm=audio 4000 RTP/AVP 8 0\r\n";

@@ -16,10 +16,10 @@ int jitter_get(struct jitter *j,uint8_t *data,size_t cap) {
     if(!j||!data||cap<JITTER_PAYLOAD||!j->started)return 0;
     struct jitter_slot *s=&j->slots[j->expected%JITTER_SLOTS];
     if(!s->valid||s->sequence!=j->expected) {
-        /* Never synthesize audio: skip a genuinely lost packet after the
-           queue has enough future media to prove this is not mere jitter. */
-        if(j->queued>20)j->expected++;
+        /* Future media proves that this is a gap.  Give reordering three
+           playout ticks, then report one skipped packet to the modem. */
+        if(j->queued&&++j->missing_ticks>=3){j->expected++;j->missing_ticks=0;return -1;}
         return 0;
     }
-    memcpy(data,s->data,JITTER_PAYLOAD);s->valid=0;j->queued--;j->expected++;return JITTER_PAYLOAD;
+    memcpy(data,s->data,JITTER_PAYLOAD);s->valid=0;j->queued--;j->expected++;j->missing_ticks=0;return JITTER_PAYLOAD;
 }

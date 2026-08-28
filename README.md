@@ -42,6 +42,10 @@ source code, binaries or VM images from other modem projects.
 - composite V.32 media session connected to SIP/RTP after V.8, with decoded E
   confirmation and 128 marking symbols before CONNECT; local two-process tests
   reach `CONNECT 4800` and `CONNECT 9600` and transfer exact PTY payloads
+- RTP gaps are now reported by the jitter buffer after a short reordering wait;
+  an active V.32 session requests in-band retraining with S, acknowledges with
+  S-bar, repeats start-up without ending the SIP call, and suppresses data while
+  retraining
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
@@ -49,8 +53,9 @@ adaptive equalisation, all SIP transaction timers, RTCP, TCP SIP or V.34.
 The 4800/9600 implementation remains a clean-room laboratory waveform between
 two instances of this program. Its start-up is connected end to end, but it is
 not yet proven interoperable with an ITU-T V.32 hardware modem: carrier/timing
-recovery, echo cancellation, adaptive equalisation and retraining remain to be
-implemented and tested on physical telephone paths.
+recovery, echo cancellation and adaptive equalisation remain to be implemented.
+Retraining works between two copies in deterministic PCMA tests but still needs
+validation on physical telephone paths.
 
 ## Build and test
 

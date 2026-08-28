@@ -29,7 +29,15 @@ static void run(int allow_9600, int expected)
           for (size_t i = 0; i < n; i++) fprintf(stderr, " %02x", got[i]);
           fputc('\n', stderr); }
     assert(n >= sizeof msg && !memcmp(msg, got, sizeof msg));
-    printf("V.32 composite PCMA session: CONNECT %d, E + 128 marking + exact payload\n", v32_session_rate(&a));
+    v32_session_media_gap(&a);
+    assert(!v32_session_connected(&a));
+    for(int i=0;i<100&&(!v32_session_connected(&a)||!v32_session_connected(&b));i++)block(&a,&b);
+    assert(v32_session_connected(&a)&&v32_session_connected(&b));
+    memset(got,0,sizeof got);assert(v32_session_write(&b,msg,sizeof msg)==sizeof msg);
+    for(int i=0;i<30;i++)block(&a,&b);
+    n=v32_session_read(&a,got,sizeof got);
+    assert(n>=sizeof msg&&!memcmp(msg,got,sizeof msg));
+    printf("V.32 composite PCMA session: CONNECT %d, retrain and exact payload\n", v32_session_rate(&a));
 }
 
 int main(void)

@@ -151,8 +151,9 @@ int main(void) {
             int16_t pcm[160]; uint8_t alaw[160],packet[172];
             if(c.v8&&!v8_done)v8_session_advance(&v8s,20);
             if(modem_started&&c.speed==2400)v22bis_advance(&modem22bis,20);
-            uint8_t inbound[160];
-            if(jitter_get(&jitter,inbound,sizeof inbound)>0){
+            uint8_t inbound[160];int jitter_result=jitter_get(&jitter,inbound,sizeof inbound);
+            if(jitter_result<0&&standard_v32){v32_session_media_gap(&modem32std);fprintf(stderr,"RTP gap: requesting V.32 retrain\n");}
+            if(jitter_result>0){
                 int16_t rx[160];pcma_decode_buffer(inbound,rx,160);
                 if(c.v8&&!v8_done){
                     if(!answer_side&&v8s.state==V8_WAIT){
