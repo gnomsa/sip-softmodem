@@ -5,6 +5,7 @@
 #include <stdint.h>
 #define V34_MAX_MAPPING_FRAMES 16u
 #define V34_MAX_DATA_FRAME_BITS 1248u
+#define V34_MAX_SUPERFRAME_BITS 9408u
 typedef struct {
     unsigned data_frames_per_superframe;
     unsigned mapping_frames_per_data_frame;

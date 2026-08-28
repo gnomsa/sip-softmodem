@@ -27,6 +27,7 @@ bool v34_b1_frame_init(v34_b1_frame *frame,
             frame->bits[offset++] = (uint8_t)v34_scramble_bit(&scrambler, 1u);
     }
     frame->mapping_offset[mapping_frame] = (uint16_t)offset;
+    frame->scrambler_after = scrambler;
     return offset == frame->geometry.bits_per_data_frame;
 }
 

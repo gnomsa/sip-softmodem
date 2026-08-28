@@ -8,6 +8,7 @@
 
 typedef struct {
     v34_frame_geometry geometry;
+    v34_scrambler scrambler_after;
     uint16_t mapping_offset[V34_MAX_MAPPING_FRAMES + 1u];
     uint8_t bits[V34_MAX_DATA_FRAME_BITS];
 } v34_b1_frame;
