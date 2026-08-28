@@ -1,6 +1,7 @@
 #include "pcma.h"
 #include "v21.h"
 #include "v22.h"
+#include "v32.h"
 #include "v22bis.h"
 #include <stdio.h>
 
@@ -35,4 +36,10 @@ static int test_v22bis(void){
     printf("V.22bis/PCMA: A->B %zu/%d bytes, %zu bit errors; B->A %zu/%d bytes, %zu bit errors; %.1f B/s including training\n",na,N,ea,nb,N,eb,N/seconds);
     return na==N&&nb==N&&ea==0&&eb==0?0:1;
 }
-int main(void){int a=test_v21(),b=test_v22(),c=test_v22bis();return a||b||c;}
+static int test_v32_rate(int rate){
+    enum{N=512};unsigned char ab[N],ba[N],rab[N]={0},rba[N]={0};pattern(ab,N,(unsigned)rate);pattern(ba,N,(unsigned)rate+1);
+    struct v32 a,b;v32_init(&a,rate);v32_init(&b,rate);v32_write(&a,ab,N);v32_write(&b,ba,N);size_t na=0,nb=0;int blocks=0;
+    for(;blocks<4000&&(na<N||nb<N);blocks++){int16_t xa[160],xb[160];v32_generate(&a,xa,160);v32_generate(&b,xb,160);channel(xa);channel(xb);v32_receive(&a,xb,160);v32_receive(&b,xa,160);na+=v32_read(&b,rab+na,N-na);nb+=v32_read(&a,rba+nb,N-nb);}
+    size_t ea=errors(ab,rab,na),eb=errors(ba,rba,nb);double seconds=blocks*.020;printf("V.32-%d/PCMA: A->B %zu/%d bytes, %zu bit errors; B->A %zu/%d bytes, %zu bit errors; %.1f B/s\n",rate,na,N,ea,nb,N,eb,N/seconds);return na==N&&nb==N&&ea==0&&eb==0?0:1;
+}
+int main(void){int a=test_v21(),b=test_v22(),c=test_v22bis(),d=test_v32_rate(4800),e=test_v32_rate(9600);return a||b||c||d||e;}

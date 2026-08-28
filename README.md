@@ -2,7 +2,7 @@
 
 A small clean-room SIP/RTP software modem for Linux, written in C11 by
 [Gnomsa](mailto:gnomsa88@gmail.com). An incoming SIP call carrying G.711
-A-law audio is answered by a software V.21 modem. Received serial bytes appear
+A-law audio is answered by a software modem. Received serial bytes appear
 on a Linux PTY; bytes written to that PTY are modulated back into RTP audio.
 
 This repository contains an independent implementation. It does not contain
@@ -16,7 +16,8 @@ source code, binaries or VM images from other modem projects.
 - RTP at 8 kHz with 20 ms packets
 - sequence-aware 200 ms RTP jitter buffer without synthetic concealment audio
 - G.711 A-law encoder and decoder
-- selectable V.21 at 300 bit/s, V.22 DQPSK at 1200 bit/s, or V.22bis QAM at 2400 bit/s
+- selectable V.21 at 300 bit/s, V.22 at 1200 bit/s, V.22bis at 2400 bit/s,
+  and experimental coherent QAM at 4800 or 9600 bit/s
 - 2100 Hz answer tone followed by a short guard interval
 - transparent PTY suitable for a terminal program or experimental PPP
 - V.250-style command mode with `AT`, `ATDT`, `ATDP`, `ATDL`, `ATA`, `ATH`, `ATO`, `ATE`, `ATV`,
@@ -26,8 +27,11 @@ source code, binaries or VM images from other modem projects.
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
-adaptive equalisation, all SIP transaction timers, RTCP, TCP SIP, V.22 or
-V.34. Those are planned work, not current claims.
+adaptive equalisation, all SIP transaction timers, RTCP, TCP SIP or V.34.
+The 4800/9600 implementation is a clean-room laboratory waveform between two
+instances of this program. It is not yet an interoperable ITU-T V.32 modem:
+trellis coding, echo cancellation, adaptive equalisation and V.8 negotiation
+remain to be implemented.
 
 ## Build and test
 
@@ -37,6 +41,8 @@ Debian needs only the normal C toolchain:
 sudo apt install build-essential
 make
 make test
+make link-test
+make integration-test
 ```
 
 Run in the foreground:
@@ -61,7 +67,8 @@ Open the serial side after startup:
 picocom --baud 115200 /run/sip-softmodem/ttyMODEM0
 ```
 
-The PTY baud setting does not determine the line speed: V.21 remains 300 bit/s.
+The PTY baud setting does not determine the line speed; the selected modem mode
+does.
 Only one process should own the PTY. A minimal experimental PPP server command
 after carrier establishment is:
 
@@ -81,8 +88,8 @@ All settings are environment variables. See
 | `SOFTMODEM_PUBLIC_IP` | `127.0.0.1` | address advertised in Contact and SDP |
 | `SOFTMODEM_SIP_PORT` | `5060` | SIP UDP port |
 | `SOFTMODEM_RTP_PORT` | `10000` | RTP UDP port |
-| `SOFTMODEM_PROTOCOLS` | `ALL` | allowed protocols; this build implements `V21,V22,V22BIS` |
-| `SOFTMODEM_MAX_RATE` | `33600` | maximum permitted rate; highest enabled implemented mode is selected |
+| `SOFTMODEM_PROTOCOLS` | `ALL` | allowed standard modes: `V21,V22,V22BIS`; comma-separated |
+| `SOFTMODEM_MAX_RATE` | `2400` | maximum permitted rate; highest enabled mode is selected |
 | `SOFTMODEM_ALLOWED_IPS` | empty | comma-separated SIP source addresses; empty allows all |
 | `SOFTMODEM_OUTBOUND_HOST` | empty | SIP proxy/SBC address used for outgoing `ATD` calls |
 | `SOFTMODEM_OUTBOUND_PORT` | `5060` | SIP proxy/SBC UDP port |
@@ -93,6 +100,21 @@ All settings are environment variables. See
 
 Identity settings reject CR and LF characters. The source allowlist is a simple
 exact IPv4 match, not a replacement for a firewall on an untrusted network.
+
+`ALL` currently chooses 2400. Setting the maximum to 1200 or 300 selects a
+lower mode. `EXPERIMENTAL_QAM` explicitly enables the private 4800/9600
+loopback waveform; it is deliberately not named V.32 and is never selected by
+`ALL`. Selection is still configuration-time, not on-line negotiation yet.
+
+## Measured loopback status
+
+`make link-test` connects two independent DSP instances through the project's
+G.711 A-law codec in both directions. In the deterministic, loss-free test it
+currently reports zero bit errors at every implemented rate. The measured
+payload throughput at 9600 is about 948 bytes/s and at 4800 about 474 bytes/s;
+UART framing accounts for most of the difference from the raw bit rate. This
+test establishes compatibility between two copies of this software only, not
+compatibility with a telephone-network or hardware modem.
 
 ## Install as a service
 
