@@ -1,4 +1,5 @@
 #include "pcma.h"
+#include "at.h"
 #include "jitter.h"
 #include "pty.h"
 #include "rtp.h"
@@ -24,8 +25,8 @@ static volatile sig_atomic_t stopping;
 static void on_signal(int sig) { (void)sig; stopping=1; }
 
 struct config {
-    const char *bind_ip,*public_ip,*allowed_ip,*tty_path,*user_agent,*sdp_origin,*sdp_name;
-    uint16_t sip_port,rtp_port; int speed;
+    const char *bind_ip,*public_ip,*allowed_ip,*tty_path,*user_agent,*sdp_origin,*sdp_name,*outbound_host;
+    uint16_t sip_port,rtp_port,outbound_port; int speed;
 };
 static const char *env_or(const char *name,const char *fallback) { const char *v=getenv(name); return v&&*v?v:fallback; }
 static uint16_t env_port(const char *name,uint16_t fallback) { long v=strtol(env_or(name,"0"),NULL,10); return v>0&&v<65536?(uint16_t)v:fallback; }
@@ -52,7 +53,8 @@ int main(void) {
         .allowed_ip=env_or("SOFTMODEM_ALLOWED_IPS",""), .tty_path=env_or("SOFTMODEM_TTY","/tmp/ttySOFTMODEM0"),
         .user_agent=env_or("SOFTMODEM_USER_AGENT","SIP-Softmodem/0.1"), .sdp_origin=env_or("SOFTMODEM_SDP_ORIGIN","softmodem"),
         .sdp_name=env_or("SOFTMODEM_SDP_NAME","SIP Softmodem"), .sip_port=env_port("SOFTMODEM_SIP_PORT",5060),
-        .rtp_port=env_port("SOFTMODEM_RTP_PORT",10000), .speed=atoi(env_or("SOFTMODEM_SPEED","1200"))};
+        .rtp_port=env_port("SOFTMODEM_RTP_PORT",10000), .outbound_host=env_or("SOFTMODEM_OUTBOUND_HOST",""),
+        .outbound_port=env_port("SOFTMODEM_OUTBOUND_PORT",5060), .speed=atoi(env_or("SOFTMODEM_SPEED","1200"))};
     if(!safe_text(c.user_agent)||!safe_text(c.sdp_origin)||!safe_text(c.sdp_name)){fprintf(stderr,"invalid CR/LF in identity setting\n");return 2;}
     if(c.speed!=300&&c.speed!=1200){fprintf(stderr,"SOFTMODEM_SPEED must be 300 or 1200\n");return 2;}
     int sip_fd=udp_bind(c.bind_ip,c.sip_port),rtp_fd=udp_bind(c.bind_ip,c.rtp_port); char slave[256]; int pty_fd=pty_open_link(c.tty_path,slave,sizeof slave);
@@ -60,16 +62,20 @@ int main(void) {
     signal(SIGINT,on_signal);signal(SIGTERM,on_signal); srand((unsigned)(time(NULL)^getpid()));
     fprintf(stderr,"SIP %s:%u, RTP %s:%u, %d bit/s, PTY %s -> %s\n",c.bind_ip,c.sip_port,c.bind_ip,c.rtp_port,c.speed,c.tty_path,slave);
 
-    struct sockaddr_in peer_rtp={0},peer_sip={0}; socklen_t peer_sip_len=sizeof peer_sip; int call=0,acked=0;
-    char dialog_id[256]="", tag[32],last_ok[4096]=""; int last_ok_len=0; snprintf(tag,sizeof tag,"%08x",(unsigned)rand());
+    struct sockaddr_in peer_rtp={0},peer_sip={0}; socklen_t peer_sip_len=sizeof peer_sip; int call=0,acked=0,pending=0,answer_requested=0,connect_reported=0;
+    struct sip_request pending_req;char remote_ip[64]="";uint16_t remote_port=0;
+    char dialog_id[256]="", tag[32],last_ok[4096]="",last_ring[2048]=""; int last_ok_len=0,last_ring_len=0; snprintf(tag,sizeof tag,"%08x",(unsigned)rand());
     struct v21 modem; struct v22 modem22; v21_init(&modem);v22_init(&modem22); struct rtp_sender tx={(uint16_t)rand(),(uint32_t)rand(),(uint32_t)rand()};
-    struct jitter jitter; jitter_reset(&jitter); uint64_t next_tx=now_ms(),call_started=0,last_rtp=0; uint64_t media_samples=0;
+    struct at_modem at;at_init(&at);at.s0=1;
+    struct jitter jitter; jitter_reset(&jitter); uint64_t next_tx=now_ms(),call_started=0,last_rtp=0,next_ring=0; uint64_t media_samples=0;
     while(!stopping) {
         struct pollfd fds[]={{sip_fd,POLLIN,0},{rtp_fd,POLLIN,0},{pty_fd,POLLIN,0}};
-        int timeout=call?(int)(next_tx>now_ms()?next_tx-now_ms():0):-1;
+        uint64_t before_poll=now_ms();
+        int timeout=call?(int)(next_tx>before_poll?next_tx-before_poll:0):
+                    pending?(int)(next_ring>before_poll?next_ring-before_poll:0):-1;
         int ready=poll(fds,ARRAY_SIZE(fds),timeout); if(ready<0){if(errno==EINTR)continue;perror("poll");break;}
         if(fds[0].revents&POLLIN) {
-            char input[8193],output[4096],sdp_body[1024],remote_ip[64]; struct sockaddr_in from; socklen_t fl=sizeof from;
+            char input[8193],output[4096]; struct sockaddr_in from; socklen_t fl=sizeof from;
             ssize_t n=recvfrom(sip_fd,input,sizeof input-1,0,(struct sockaddr*)&from,&fl); if(n<=0)continue; input[n]='\0';
             struct sip_request req; if(sip_parse(input,&req)<0)continue;
             char contact[256]; snprintf(contact,sizeof contact,"sip:modem@%s:%u",c.public_ip,c.sip_port);
@@ -77,22 +83,24 @@ int main(void) {
             if(!strcmp(req.method,"OPTIONS")) {int m=sip_make_response(output,sizeof output,&req,200,"OK",tag,contact,c.user_agent,"");send_sip(sip_fd,&from,output,m);continue;}
             if(!strcmp(req.method,"INVITE")) {
                 if(call && !strcmp(req.call_id,dialog_id)) { send_sip(sip_fd,&from,last_ok,last_ok_len); continue; }
-                uint16_t remote_port; if(call || sip_pcma_endpoint(req.body,remote_ip,sizeof remote_ip,&remote_port)<0) {
-                    int code=call?486:488;int m=sip_make_response(output,sizeof output,&req,code,call?"Busy Here":"Not Acceptable Here",tag,contact,c.user_agent,"");send_sip(sip_fd,&from,output,m);continue;
+                if(pending && !strcmp(req.call_id,dialog_id)){send_sip(sip_fd,&from,last_ring,last_ring_len);continue;}
+                if(call||pending || sip_pcma_endpoint(req.body,remote_ip,sizeof remote_ip,&remote_port)<0) {
+                    int code=(call||pending)?486:488;int m=sip_make_response(output,sizeof output,&req,code,(call||pending)?"Busy Here":"Not Acceptable Here",tag,contact,c.user_agent,"");send_sip(sip_fd,&from,output,m);continue;
                 }
                 peer_rtp.sin_family=AF_INET;peer_rtp.sin_port=htons(remote_port);if(inet_pton(AF_INET,remote_ip,&peer_rtp.sin_addr)!=1)continue;
-                peer_sip=from;peer_sip_len=fl;snprintf(dialog_id,sizeof dialog_id,"%s",req.call_id);
-                sip_make_sdp(sdp_body,sizeof sdp_body,c.public_ip,c.rtp_port,c.sdp_origin,c.sdp_name);
-                int m=sip_make_response(output,sizeof output,&req,200,"OK",tag,contact,c.user_agent,sdp_body);send_sip(sip_fd,&from,output,m);
-                memcpy(last_ok,output,(size_t)m);last_ok_len=m;call=1;acked=0;media_samples=0;call_started=now_ms();last_rtp=0;next_tx=call_started;jitter_reset(&jitter);v21_init(&modem);v22_init(&modem22);fprintf(stderr,"call from %s, RTP %s:%u at %d bit/s\n",inet_ntoa(from.sin_addr),remote_ip,remote_port,c.speed);
+                peer_sip=from;peer_sip_len=fl;pending_req=req;pending_req.body=NULL;snprintf(dialog_id,sizeof dialog_id,"%s",req.call_id);
+                int m=sip_make_response(output,sizeof output,&req,180,"Ringing",tag,contact,c.user_agent,"");send_sip(sip_fd,&from,output,m);memcpy(last_ring,output,(size_t)m);last_ring_len=m;
+                pending=1;next_ring=now_ms()+6000;char atout[128];enum at_event ev=at_ring(&at,atout,sizeof atout);(void)write(pty_fd,atout,strlen(atout));if(ev==AT_EVENT_ANSWER)answer_requested=1;
             } else if(!strcmp(req.method,"ACK") && call && !strcmp(req.call_id,dialog_id)) acked=1;
-            else if(!strcmp(req.method,"BYE") && call && !strcmp(req.call_id,dialog_id)) {int m=sip_make_response(output,sizeof output,&req,200,"OK",tag,contact,c.user_agent,"");send_sip(sip_fd,&from,output,m);call=acked=0;fprintf(stderr,"call ended\n");}
+            else if(!strcmp(req.method,"BYE") && call && !strcmp(req.call_id,dialog_id)) {int m=sip_make_response(output,sizeof output,&req,200,"OK",tag,contact,c.user_agent,"");send_sip(sip_fd,&from,output,m);call=acked=0;char atout[128];size_t z=at_no_carrier(&at,atout,sizeof atout);(void)write(pty_fd,atout,z);fprintf(stderr,"call ended\n");}
         }
         if(call && (fds[1].revents&POLLIN)) {
             uint8_t packet[2048];ssize_t n=recv(rtp_fd,packet,sizeof packet,0);struct rtp_packet rp;
             if(n>0&&rtp_parse(packet,(size_t)n,&rp)==0&&rp.payload_type==8&&rp.payload_len==160){jitter_put(&jitter,rp.sequence,rp.payload,rp.payload_len);last_rtp=now_ms();}
         }
-        if(call && acked && (fds[2].revents&POLLIN)) {uint8_t bytes[512];ssize_t n=read(pty_fd,bytes,sizeof bytes);if(n>0){if(c.speed==1200)v22_write(&modem22,bytes,(size_t)n);else v21_write(&modem,bytes,(size_t)n);}}
+        if(fds[2].revents&POLLIN) {uint8_t bytes[512];ssize_t n=read(pty_fd,bytes,sizeof bytes);if(n>0){if(at.online&&call&&acked){if(c.speed==1200)v22_write(&modem22,bytes,(size_t)n);else v21_write(&modem,bytes,(size_t)n);}else{char atout[1024];memset(atout,0,sizeof atout);enum at_event ev=at_feed(&at,bytes,(size_t)n,atout,sizeof atout);size_t z=strnlen(atout,sizeof atout);if(z)(void)write(pty_fd,atout,z);if(ev==AT_EVENT_ANSWER&&pending)answer_requested=1;if(ev==AT_EVENT_DIAL&&!c.outbound_host[0]){char status[64];size_t q=at_no_dialtone(&at,status,sizeof status);(void)write(pty_fd,status,q);}if(ev==AT_EVENT_HANGUP){pending=0;call=acked=0;}}}}
+        if(pending&&now_ms()>=next_ring){char atout[128]={0};enum at_event ev=at_ring(&at,atout,sizeof atout);(void)write(pty_fd,atout,strnlen(atout,sizeof atout));if(ev==AT_EVENT_ANSWER)answer_requested=1;next_ring+=6000;}
+        if(pending&&answer_requested){char output[4096],sdp_body[1024],contact[256];snprintf(contact,sizeof contact,"sip:modem@%s:%u",c.public_ip,c.sip_port);sip_make_sdp(sdp_body,sizeof sdp_body,c.public_ip,c.rtp_port,c.sdp_origin,c.sdp_name);int m=sip_make_response(output,sizeof output,&pending_req,200,"OK",tag,contact,c.user_agent,sdp_body);send_sip(sip_fd,&peer_sip,output,m);memcpy(last_ok,output,(size_t)m);last_ok_len=m;pending=0;answer_requested=0;call=1;acked=0;connect_reported=0;media_samples=0;call_started=now_ms();last_rtp=0;next_tx=call_started;jitter_reset(&jitter);v21_init(&modem);v22_init(&modem22);fprintf(stderr,"answering RTP %s:%u at %d bit/s\n",remote_ip,remote_port,c.speed);}
         uint64_t now=now_ms();
         while(call && now>=next_tx) {
             int16_t pcm[160]; uint8_t alaw[160],packet[172];
@@ -103,6 +111,7 @@ int main(void) {
             sendto(rtp_fd,packet,length,0,(struct sockaddr*)&peer_rtp,sizeof peer_rtp);media_samples+=160;next_tx+=20;now=now_ms();
         }
         now=now_ms();if(call&&((!acked&&now-call_started>32000)||(last_rtp&&now-last_rtp>30000))){fprintf(stderr,"call timed out\n");call=acked=0;last_ok_len=0;}
+        if(call&&acked&&!connect_reported&&media_samples>=(c.speed==1200?39800u:32600u)){char atout[128];size_t z=at_connected(&at,c.speed,atout,sizeof atout);(void)write(pty_fd,atout,z);connect_reported=1;}
     }
     (void)peer_sip;(void)peer_sip_len;close(pty_fd);close(rtp_fd);close(sip_fd);unlink(c.tty_path);return 0;
 }

@@ -19,6 +19,9 @@ source code, binaries or VM images from other modem projects.
 - selectable V.21 at 300 bit/s or V.22 DQPSK at 1200 bit/s
 - 2100 Hz answer tone followed by a short guard interval
 - transparent PTY suitable for a terminal program or experimental PPP
+- V.250-style command mode with `AT`, `ATDT`, `ATDP`, `ATDL`, `ATA`, `ATH`, `ATO`, `ATE`, `ATV`,
+  `ATQ`, `ATI`, `ATS0`, `ATZ` and `AT+MS`
+- incoming SIP calls produce `RING`; `ATA` and `ATS0` control the SIP answer
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
@@ -79,6 +82,8 @@ All settings are environment variables. See
 | `SOFTMODEM_RTP_PORT` | `10000` | RTP UDP port |
 | `SOFTMODEM_SPEED` | `1200` | line modulation: `300` (V.21) or `1200` (V.22) |
 | `SOFTMODEM_ALLOWED_IPS` | empty | comma-separated SIP source addresses; empty allows all |
+| `SOFTMODEM_OUTBOUND_HOST` | empty | SIP proxy/SBC address used for outgoing `ATD` calls |
+| `SOFTMODEM_OUTBOUND_PORT` | `5060` | SIP proxy/SBC UDP port |
 | `SOFTMODEM_TTY` | `/tmp/ttySOFTMODEM0` | stable symlink to the allocated PTY |
 | `SOFTMODEM_USER_AGENT` | `SIP-Softmodem/0.1` | value used in the SIP `Server` header |
 | `SOFTMODEM_SDP_ORIGIN` | `softmodem` | username in the SDP `o=` line |

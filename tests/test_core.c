@@ -1,4 +1,5 @@
 #include "pcma.h"
+#include "at.h"
 #include "jitter.h"
 #include "rtp.h"
 #include "sip.h"
@@ -17,6 +18,7 @@ static void test_pcma(void) {
         assert(abs(decoded-values[i]) < 1200);
     }
 }
+static void test_at(void){struct at_modem a;at_init(&a);char out[512]={0};const uint8_t cmd[]="ATE0V1S0=2\r";assert(at_feed(&a,cmd,sizeof cmd-1,out,sizeof out)==AT_EVENT_NONE);assert(!a.echo&&a.verbose&&a.s0==2&&strstr(out,"OK"));memset(out,0,sizeof out);assert(at_ring(&a,out,sizeof out)==AT_EVENT_NONE);assert(strstr(out,"RING"));assert(at_ring(&a,out,sizeof out)==AT_EVENT_ANSWER);const uint8_t answer[]="ATA\r";assert(at_feed(&a,answer,sizeof answer-1,out,sizeof out)==AT_EVENT_ANSWER);const uint8_t dial[]="ATDP+42012345\r";assert(at_feed(&a,dial,sizeof dial-1,out,sizeof out)==AT_EVENT_DIAL);assert(a.pulse_dial&&!strcmp(a.dial_number,"+42012345"));const uint8_t redial[]="ATDL\r";assert(at_feed(&a,redial,sizeof redial-1,out,sizeof out)==AT_EVENT_DIAL);assert(!strcmp(a.dial_number,"+42012345"));}
 static void test_rtp(void) {
     struct rtp_sender s={42,8000,99};uint8_t payload[160]={1,2,3},wire[172];
     size_t n=rtp_build(&s,payload,sizeof payload,wire,sizeof wire);struct rtp_packet p;
@@ -54,4 +56,4 @@ static void test_v22_transmit(void) {
     struct v22 modem;v22_init(&modem);uint8_t text[]={0x55,0xaa};assert(v22_write(&modem,text,sizeof text)==sizeof text);
     int16_t samples[160];v22_generate(&modem,samples,160);long long energy=0;for(size_t i=0;i<160;i++)energy+=(long long)samples[i]*samples[i];assert(energy>1000000000LL);
 }
-int main(void) { test_pcma();test_rtp();test_jitter();test_sip();test_v21_receive();test_v22_transmit();puts("all core tests passed");return 0; }
+int main(void) { test_at();test_pcma();test_rtp();test_jitter();test_sip();test_v21_receive();test_v22_transmit();puts("all core tests passed");return 0; }
