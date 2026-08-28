@@ -4,13 +4,37 @@
 
 #define SESSION_QUEUE_MASK (V34_UART_QUEUE_SIZE - 1u)
 
+static v34_symbol_rate tx_symbol(const v34_session *s)
+{
+    return s->config.directional_symbols ? s->config.tx_symbol_rate :
+                                           s->config.symbol_rate;
+}
+
+static v34_symbol_rate rx_symbol(const v34_session *s)
+{
+    return s->config.directional_symbols ? s->config.rx_symbol_rate :
+                                           s->config.symbol_rate;
+}
+
+static bool tx_high_carrier(const v34_session *s)
+{
+    return s->config.directional_symbols ? s->config.tx_high_carrier :
+                                           s->config.call_modem;
+}
+
+static bool rx_high_carrier(const v34_session *s)
+{
+    return s->config.directional_symbols ? s->config.rx_high_carrier :
+                                           !s->config.call_modem;
+}
+
 static bool start_phase4_tx(v34_session *s)
 {
     bool call = s->config.call_modem;
     if (!v34_phase4_stream_init(
             &s->phase4_tx, call, &s->phase3_tx.scrambler,
             s->phase3_tx.j_rotation, &s->config.mp,
-            s->config.symbol_rate, call, s->config.sample_rate,
+            tx_symbol(s), tx_high_carrier(s), s->config.sample_rate,
             s->config.training_amplitude))
         return false;
     s->phase4_tx_ready = true;
@@ -24,7 +48,7 @@ static bool start_phase4_rx(v34_session *s)
     bool call = s->config.call_modem;
     if (!v34_phase4_receiver_init(
             &s->phase4_rx, !call, &s->phase3_rx.scrambler,
-            s->phase3_rx.trn_rotation, s->config.symbol_rate, !call,
+            s->phase3_rx.trn_rotation, rx_symbol(s), rx_high_carrier(s),
             s->config.sample_rate))
         return false;
     s->phase4_rx_ready = true;
@@ -68,8 +92,8 @@ static bool start_data_link(v34_session *s)
     if (!v34_b1_data_link_init_after_phase4(
             &s->data_link, s->config.call_modem,
             &s->phase4_tx, &s->phase4_rx,
-            s->config.symbol_rate, tx_rate,
-            s->config.symbol_rate, rx_rate,
+            tx_symbol(s), tx_rate,
+            rx_symbol(s), rx_rate,
             s->config.trellis, s->config.expanded_shaping,
             s->config.sample_rate, s->config.coordinate_scale))
         return false;
@@ -108,11 +132,11 @@ bool v34_session_init(v34_session *s, const v34_session_config *config)
     remote_role = config->call_modem ? V34_PHASE3_ANSWER : V34_PHASE3_CALL;
     if (!v34_phase3_stream_init(
             &s->phase3_tx, local_role, config->md_length_35ms,
-            config->symbol_rate, config->call_modem, config->sample_rate,
+            tx_symbol(s), tx_high_carrier(s), config->sample_rate,
             config->training_amplitude) ||
         !v34_phase3_receiver_init(
             &s->phase3_rx, remote_role, config->md_length_35ms,
-            config->symbol_rate, !config->call_modem,
+            rx_symbol(s), rx_high_carrier(s),
             config->sample_rate))
         return false;
     s->state = V34_SESSION_PHASE3;

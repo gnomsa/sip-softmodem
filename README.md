@@ -100,6 +100,9 @@ source code, binaries or VM images from other modem projects.
 - one packet-streaming Phase 2 session now chains the initial 75 ms/INFO0/A/B
   ranging procedure, the final 10 ms answer tone, both line probes and the
   INFO1 exchange without an externally timed stage transition
+- a full modem session consumes the Phase 2 result, configures independent
+  transmit/receive symbol rates and carriers, then continues through Phase 3,
+  Phase 4, B1 and queued asynchronous byte data using the same packet API
 - normative Phase 3 S/S-bar, PP and four-point TRN symbol generation, including
   the separate call and answer scramblers, plus a PCMA training transmitter
 - Phase 4 J-prime/TRN/MP/MP-prime/E plans and a PCMA MP Type 0 receiver

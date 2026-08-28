@@ -23,6 +23,11 @@ typedef struct {
     double training_amplitude;
     double coordinate_scale;
     v34_mp0 mp;
+    bool directional_symbols;
+    v34_symbol_rate tx_symbol_rate;
+    v34_symbol_rate rx_symbol_rate;
+    bool tx_high_carrier;
+    bool rx_high_carrier;
 } v34_session_config;
 
 typedef struct {

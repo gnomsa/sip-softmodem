@@ -11,12 +11,14 @@ int main(void)
     v34_session_config call_config = {
         true, 0, V34_SYMBOL_3429, 33600, V34_TRELLIS_64, true,
         8000, 9000.0, 180.0,
-        {14, 12, false, 2, false, true, false, V34_RATE_ALL_MASK, true}
+        {14, 12, false, 2, false, true, false, V34_RATE_ALL_MASK, true},
+        false, V34_SYMBOL_2400, V34_SYMBOL_2400, false, false
     };
     v34_session_config answer_config = {
         false, 0, V34_SYMBOL_3429, 33600, V34_TRELLIS_64, true,
         8000, 9000.0, 180.0,
-        {14, 13, false, 2, false, true, false, V34_RATE_ALL_MASK, true}
+        {14, 13, false, 2, false, true, false, V34_RATE_ALL_MASK, true},
+        false, V34_SYMBOL_2400, V34_SYMBOL_2400, false, false
     };
     uint8_t call_input[1403], answer_input[997];
     uint8_t call_output[1403], answer_output[997];

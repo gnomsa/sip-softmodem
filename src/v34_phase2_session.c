@@ -135,3 +135,40 @@ unsigned v34_phase2_session_round_trip_samples(
     return session == NULL ? 0u :
         v34_phase2_ranging_round_trip_samples(&session->ranging);
 }
+
+bool v34_phase2_session_mode(const v34_phase2_session *session,
+                             v34_mode *mode,
+                             bool *call_high_carrier,
+                             bool *answer_high_carrier)
+{
+    const v34_info1a *info;
+    const v34_info1c *answer_report;
+    unsigned answer_rate;
+    if (session == NULL || mode == NULL ||
+        !v34_phase2_session_complete(session))
+        return false;
+    info = v34_phase2_session_info1a(session);
+    if (info == NULL || info->call_symbol_rate >= V34_SYMBOL_COUNT ||
+        info->answer_symbol_rate >= V34_SYMBOL_COUNT)
+        return false;
+    answer_report = session->role == V34_INFO_CALL_MODEM ?
+        &session->probing.local_info1c : &session->probing.peer_info1c;
+    answer_rate = (unsigned)answer_report->symbol[info->answer_symbol_rate]
+                      .projected_rate_2400 * V34_RATE_STEP;
+    mode->tx_rate = session->role == V34_INFO_CALL_MODEM ?
+        (unsigned)info->projected_rate_2400 * V34_RATE_STEP : answer_rate;
+    mode->rx_rate = session->role == V34_INFO_CALL_MODEM ? answer_rate :
+        (unsigned)info->projected_rate_2400 * V34_RATE_STEP;
+    mode->tx_symbol = (v34_symbol_rate)(session->role == V34_INFO_CALL_MODEM ?
+        info->call_symbol_rate : info->answer_symbol_rate);
+    mode->rx_symbol = (v34_symbol_rate)(session->role == V34_INFO_CALL_MODEM ?
+        info->answer_symbol_rate : info->call_symbol_rate);
+    if (mode->tx_rate < V34_RATE_MIN || mode->rx_rate < V34_RATE_MIN)
+        return false;
+    if (call_high_carrier != NULL)
+        *call_high_carrier = info->high_carrier;
+    if (answer_high_carrier != NULL)
+        *answer_high_carrier =
+            answer_report->symbol[info->answer_symbol_rate].high_carrier;
+    return true;
+}

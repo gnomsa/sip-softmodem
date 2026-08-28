@@ -56,6 +56,15 @@ int main(void)
            V34_SYMBOL_3429);
     assert(v34_phase2_session_info1a(&call)->call_symbol_rate ==
            V34_SYMBOL_3429);
+    {
+        v34_mode call_mode, answer_mode;
+        assert(v34_phase2_session_mode(&call, &call_mode, NULL, NULL));
+        assert(v34_phase2_session_mode(&answer, &answer_mode, NULL, NULL));
+        assert(call_mode.tx_rate == 33600u && call_mode.rx_rate == 33600u);
+        assert(answer_mode.tx_rate == 33600u && answer_mode.rx_rate == 33600u);
+        assert(call_mode.tx_symbol == V34_SYMBOL_3429);
+        assert(answer_mode.rx_symbol == V34_SYMBOL_3429);
+    }
     printf("v34 complete Phase 2: RTD 400 ms, 33600/33600 in %u packets\n",
            packet);
     return 0;

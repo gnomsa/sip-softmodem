@@ -47,5 +47,9 @@ const v34_info1a *v34_phase2_session_info1a(
     const v34_phase2_session *session);
 unsigned v34_phase2_session_round_trip_samples(
     const v34_phase2_session *session);
+bool v34_phase2_session_mode(const v34_phase2_session *session,
+                             v34_mode *mode,
+                             bool *call_high_carrier,
+                             bool *answer_high_carrier);
 
 #endif
