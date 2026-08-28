@@ -74,12 +74,18 @@ source code, binaries or VM images from other modem projects.
   exact rational carrier and symbol clocks, and Phase 3 call/answer plans
 - normative Phase 3 S/S-bar, PP and four-point TRN symbol generation, including
   the separate call and answer scramblers, plus a PCMA training transmitter
+- Phase 4 J-prime/TRN/MP/MP-prime/E plans and a PCMA MP Type 0 receiver
+- V.34 B1 and data-mode shell mapping, differential encoding, 16/32/64-state
+  trellis coding, QAM generation and inverse decoding at every symbol rate
+- autonomous B1 carrier acquisition followed by a decision-directed data
+  receiver; a 33600-bit/s laboratory test restores all 9408 superframe bits
+  from fourteen 20 ms PCMA blocks despite injected phase and frequency offsets
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
-low-jitter signal and does not yet implement full carrier/timing recovery,
-adaptive equalisation, all SIP transaction timers, RTCP or TCP SIP. The V.34
-training receiver, streaming Phase 3 controller, Phase 4 and data DSP path are
-not implemented yet, so V.34 is not advertised or selected by live SIP calls.
+low-jitter signal and does not yet implement full timing recovery, adaptive
+equalisation, all SIP transaction timers, RTCP or TCP SIP. The V.34 laboratory
+DSP path is not yet integrated into the live modem session, so V.34 is not
+advertised or selected by live SIP calls.
 The 4800/9600 implementation remains a clean-room laboratory waveform between
 two instances of this program. Its start-up is connected end to end, but it is
 not yet proven interoperable with an ITU-T V.32 hardware modem: carrier/timing
