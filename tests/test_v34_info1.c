@@ -41,6 +41,11 @@ int main(void)
     assert(v34_info_frame_set_crc(a, V34_INFO1A_BITS, 50, 16));
     assert(v34_info_frame_check(a, V34_INFO1A_BITS, 50, 16));
     assert(bits(a, 0, 4) == 0xf && bits(a, 4, 8) == 0x4e);
+    a[0] ^= 1u;
+    assert(!v34_info_frame_check(a, V34_INFO1A_BITS, 50, 16));
+    a[0] ^= 1u;
+    put(a, 66, 4, 0xe);
+    assert(!v34_info_frame_check(a, V34_INFO1A_BITS, 50, 16));
     puts("v34 INFO1 framing tests: ok");
     return 0;
 }

@@ -75,6 +75,11 @@ bool v34_info_frame_check(const uint8_t *frame, size_t bit_count,
     if (frame == NULL || crc_bits != 16u || crc_first < 12u ||
         crc_first + crc_bits > bit_count || crc_first - 12u > sizeof(copy) * 8u)
         return false;
+    if (get_bits(frame, 0, 4) != 0x0fu || get_bits(frame, 4, 8) != 0x4eu ||
+        get_bits(frame, crc_first + crc_bits,
+                 (unsigned)bit_count - crc_first - crc_bits) !=
+            ((1u << ((unsigned)bit_count - crc_first - crc_bits)) - 1u))
+        return false;
     for (i = 0; i < (bit_count + 7u) / 8u && i < sizeof(copy); ++i) copy[i] = frame[i];
     for (i = 0; i < 16u; ++i)
         actual |= (uint16_t)(((copy[(crc_first + i) / 8u] >> ((crc_first + i) % 8u)) & 1u) << i);
