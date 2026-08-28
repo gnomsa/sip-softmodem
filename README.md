@@ -95,6 +95,9 @@ source code, binaries or VM images from other modem projects.
   symbols, MP, acknowledged MP-prime and E in both directions
 - the E-to-B1 transition carries fractional symbol-clock and carrier phase
   state into asymmetric 33600/28800 data channels without reacquisition
+- a packet-oriented V.34 session controller now drives Phase 3, Phase 4, B1
+  and continuous data through one generate/receive/read/write API; bytes
+  written during training remain queued until the modem reports connected
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full timing recovery, adaptive
