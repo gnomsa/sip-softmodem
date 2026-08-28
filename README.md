@@ -218,6 +218,7 @@ All settings are environment variables. See
 | `SOFTMODEM_ALLOWED_IPS` | empty | comma-separated SIP source addresses; empty allows all |
 | `SOFTMODEM_OUTBOUND_HOST` | empty | SIP proxy/SBC address used for outgoing `ATD` calls |
 | `SOFTMODEM_OUTBOUND_PORT` | `5060` | SIP proxy/SBC UDP port |
+| `SOFTMODEM_CALLER_ID` | `modem` | SIP user placed in the `From` URI for outgoing calls |
 | `SOFTMODEM_TTY` | `/tmp/ttySOFTMODEM0` | PTY base path; trailing digits are replaced by the channel index when multichannel |
 | `SOFTMODEM_USER_AGENT` | `SIP-Softmodem/0.1` | value used in the SIP `Server` header |
 | `SOFTMODEM_SDP_ORIGIN` | `softmodem` | username in the SDP `o=` line |

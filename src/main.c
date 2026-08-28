@@ -17,6 +17,7 @@
 #include "v8_fsk.h"
 #include "v8_session.h"
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
@@ -40,7 +41,7 @@ static volatile sig_atomic_t stopping;
 static void on_signal(int sig) { (void)sig; stopping=1; }
 
 struct config {
-    const char *bind_ip,*public_ip,*allowed_ip,*tty_path,*user_agent,*sdp_origin,*sdp_name,*outbound_host,*protocols;
+    const char *bind_ip,*public_ip,*allowed_ip,*tty_path,*user_agent,*sdp_origin,*sdp_name,*outbound_host,*protocols,*caller_id;
     uint16_t sip_port,rtp_port,outbound_port; int speed,max_rate,v8,channels;
 };
 struct sip_envelope {
@@ -85,6 +86,7 @@ static void route_release(unsigned index,const char *call_id) {
 static const char *env_or(const char *name,const char *fallback) { const char *v=getenv(name); return v&&*v?v:fallback; }
 static uint16_t env_port(const char *name,uint16_t fallback) { long v=strtol(env_or(name,"0"),NULL,10); return v>0&&v<65536?(uint16_t)v:fallback; }
 static int safe_text(const char *s) { return s && !strpbrk(s,"\r\n"); }
+static int safe_user(const char *s) { if(!s||!*s||strlen(s)>64)return 0;for(;*s;s++)if(!isalnum((unsigned char)*s)&&!strchr("+._-",*s))return 0;return 1; }
 static int token_enabled(const char*list,const char*name){if(!strcasecmp(list,"ALL"))return 1;char copy[256];snprintf(copy,sizeof copy,"%s",list);char*save=NULL;for(char*p=strtok_r(copy,",",&save);p;p=strtok_r(NULL,",",&save)){while(*p==' ')p++;if(!strcasecmp(p,name))return 1;}return 0;}
 static int select_speed(const char*protocols,int max_rate){if(token_enabled(protocols,"V34")){int rate=max_rate>33600?33600:max_rate;rate-=rate%2400;if(rate>=2400)return rate;}if(token_enabled(protocols,"V32BIS")){if(max_rate>=14400)return 14400;if(max_rate>=12000)return 12000;if(max_rate>=9600)return 9600;if(max_rate>=7200)return 7200;if(max_rate>=4800)return 4800;}if(token_enabled(protocols,"V32")&&max_rate>=9600)return 9600;if(token_enabled(protocols,"V32")&&max_rate>=4800)return 4800;if(token_enabled(protocols,"V22BIS")&&max_rate>=2400)return 2400;if(token_enabled(protocols,"V22")&&max_rate>=1200)return 1200;if(token_enabled(protocols,"V21")&&max_rate>=300)return 300;if(strcasecmp(protocols,"ALL")&&token_enabled(protocols,"EXPERIMENTAL_QAM")&&max_rate>=9600)return 9600;if(strcasecmp(protocols,"ALL")&&token_enabled(protocols,"EXPERIMENTAL_QAM")&&max_rate>=4800)return 4800;return 0;}
 static uint64_t now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC,&t); return (uint64_t)t.tv_sec*1000+t.tv_nsec/1000000; }
@@ -209,7 +211,7 @@ static void *channel_main(void *opaque) {
             if(n>0&&rtp_parse(packet,(size_t)n,&rp)==0&&rp.payload_type==8&&rp.payload_len==160){jitter_put(&jitter,rp.sequence,rp.payload,rp.payload_len);last_rtp=now_ms();}
         }
         if(fds[2].revents&POLLIN) {uint8_t bytes[512];ssize_t n=read(pty_fd,bytes,sizeof bytes);if(n>0){if(at.online&&call&&acked){if(standard_v34)v34_modem_session_write(&modem34,bytes,(size_t)n);else if(standard_v32)v42_v32_write(&modem32std,bytes,(size_t)n);else if(c.speed>=4800)v32_write(&modem32,bytes,(size_t)n);else if(c.speed==2400)v22bis_write(&modem22bis,bytes,(size_t)n);else if(c.speed==1200)v22_write(&modem22,bytes,(size_t)n);else v21_write(&modem,bytes,(size_t)n);}else{char atout[1024];memset(atout,0,sizeof atout);enum at_event ev=at_feed(&at,bytes,(size_t)n,atout,sizeof atout);size_t z=strnlen(atout,sizeof atout);if(z)(void)write(pty_fd,atout,z);if(ev==AT_EVENT_ANSWER&&pending)answer_requested=1;if(ev==AT_EVENT_DIAL){if(!c.outbound_host[0]){char status[64];size_t q=at_no_dialtone(&at,status,sizeof status);(void)write(pty_fd,status,q);}else dial_requested=1;}if(ev==AT_EVENT_HANGUP){pending=0;dialing=0;call=acked=0;}}}}
-        if(dial_requested&&!call&&!pending&&!dialing){dial_requested=0;out_peer.sin_family=AF_INET;out_peer.sin_port=htons(c.outbound_port);if(inet_pton(AF_INET,c.outbound_host,&out_peer.sin_addr)!=1){char b[64];size_t z=at_no_dialtone(&at,b,sizeof b);(void)write(pty_fd,b,z);}else{char body[1024];snprintf(dialog_id,sizeof dialog_id,"%08x@%s",(unsigned)rand(),c.public_ip);if(!route_claim(args->index,dialog_id)){char b[64];size_t z=at_no_dialtone(&at,b,sizeof b);(void)write(pty_fd,b,z);}else{snprintf(out_uri,sizeof out_uri,"sip:%s@%s:%u",at.dial_number,c.outbound_host,c.outbound_port);snprintf(out_via,sizeof out_via,"SIP/2.0/UDP %s:%u;branch=z9hG4bK%08x;rport",c.public_ip,c.sip_port,(unsigned)rand());snprintf(out_from,sizeof out_from,"<sip:modem@%s>;tag=%s",c.public_ip,tag);snprintf(out_contact,sizeof out_contact,"sip:modem@%s:%u",c.public_ip,c.sip_port);sip_make_sdp(body,sizeof body,c.public_ip,c.rtp_port,c.sdp_origin,c.sdp_name);out_len=sip_make_uac_request(out_invite,sizeof out_invite,"INVITE",out_uri,out_via,out_from,out_uri,dialog_id,1,out_contact,c.user_agent,body);send_sip(sip_fd,&out_peer,out_invite,out_len);dialing=1;dial_started=now_ms();next_invite=dial_started+500;}}}
+        if(dial_requested&&!call&&!pending&&!dialing){dial_requested=0;out_peer.sin_family=AF_INET;out_peer.sin_port=htons(c.outbound_port);if(inet_pton(AF_INET,c.outbound_host,&out_peer.sin_addr)!=1){char b[64];size_t z=at_no_dialtone(&at,b,sizeof b);(void)write(pty_fd,b,z);}else{char body[1024];snprintf(dialog_id,sizeof dialog_id,"%08x@%s",(unsigned)rand(),c.public_ip);if(!route_claim(args->index,dialog_id)){char b[64];size_t z=at_no_dialtone(&at,b,sizeof b);(void)write(pty_fd,b,z);}else{snprintf(out_uri,sizeof out_uri,"sip:%s@%s:%u",at.dial_number,c.outbound_host,c.outbound_port);snprintf(out_via,sizeof out_via,"SIP/2.0/UDP %s:%u;branch=z9hG4bK%08x;rport",c.public_ip,c.sip_port,(unsigned)rand());snprintf(out_from,sizeof out_from,"<sip:%s@%s>;tag=%s",c.caller_id,c.public_ip,tag);snprintf(out_contact,sizeof out_contact,"sip:modem@%s:%u",c.public_ip,c.sip_port);sip_make_sdp(body,sizeof body,c.public_ip,c.rtp_port,c.sdp_origin,c.sdp_name);out_len=sip_make_uac_request(out_invite,sizeof out_invite,"INVITE",out_uri,out_via,out_from,out_uri,dialog_id,1,out_contact,c.user_agent,body);send_sip(sip_fd,&out_peer,out_invite,out_len);dialing=1;dial_started=now_ms();next_invite=dial_started+500;}}}
         if(dialing&&now_ms()>=next_invite){send_sip(sip_fd,&out_peer,out_invite,out_len);next_invite=now_ms()+1000;}
         if(pending&&now_ms()>=next_ring){char atout[1024]={0};enum at_event ev=at_ring_caller(&at,pending_req.from,atout,sizeof atout);(void)write(pty_fd,atout,strnlen(atout,sizeof atout));if(ev==AT_EVENT_ANSWER)answer_requested=1;next_ring+=6000;}
         if(pending&&answer_requested){
@@ -312,12 +314,12 @@ int main(void) {
         .user_agent=env_or("SOFTMODEM_USER_AGENT","SIP-Softmodem/0.1"), .sdp_origin=env_or("SOFTMODEM_SDP_ORIGIN","softmodem"),
         .sdp_name=env_or("SOFTMODEM_SDP_NAME","SIP Softmodem"), .sip_port=env_port("SOFTMODEM_SIP_PORT",5060),
         .rtp_port=env_port("SOFTMODEM_RTP_PORT",10000), .outbound_host=env_or("SOFTMODEM_OUTBOUND_HOST",""),
-        .outbound_port=env_port("SOFTMODEM_OUTBOUND_PORT",5060), .protocols=env_or("SOFTMODEM_PROTOCOLS","ALL"),
+        .outbound_port=env_port("SOFTMODEM_OUTBOUND_PORT",5060), .protocols=env_or("SOFTMODEM_PROTOCOLS","ALL"), .caller_id=env_or("SOFTMODEM_CALLER_ID","modem"),
         .max_rate=atoi(env_or("SOFTMODEM_MAX_RATE","33600")), .v8=atoi(env_or("SOFTMODEM_V8","1")),
         .channels=atoi(env_or("SOFTMODEM_CHANNELS","4")), .speed=0};
     int ipc[MAX_CHANNELS][2];pthread_t threads[MAX_CHANNELS];struct channel_args args[MAX_CHANNELS];
     int sip_fd,started=0;char tag[32],contact[256];
-    if(!safe_text(c.user_agent)||!safe_text(c.sdp_origin)||!safe_text(c.sdp_name)){fprintf(stderr,"invalid CR/LF in identity setting\n");return 2;}
+    if(!safe_text(c.user_agent)||!safe_text(c.sdp_origin)||!safe_text(c.sdp_name)||!safe_user(c.caller_id)){fprintf(stderr,"invalid SIP identity setting\n");return 2;}
     c.speed=select_speed(c.protocols,c.max_rate);if(!c.speed){fprintf(stderr,"no implemented protocol enabled (V21,V22,V22BIS,V32,V32BIS,V34; optional EXPERIMENTAL_QAM)\n");return 2;}
     if(c.channels<1||c.channels>MAX_CHANNELS||(unsigned)c.rtp_port+2u*(unsigned)(c.channels-1)>65535u){fprintf(stderr,"SOFTMODEM_CHANNELS or RTP port range is invalid\n");return 2;}
     sip_fd=udp_bind(c.bind_ip,c.sip_port);if(sip_fd<0){perror("SIP startup");return 1;}
