@@ -31,6 +31,7 @@ struct v32_startup {
     unsigned symbols;
     int allow_4800;
     int allow_9600;
+    unsigned allowed_rates;
     int selected_rate;
     uint16_t local_rate_word;
     uint16_t remote_rate_word;
@@ -39,6 +40,7 @@ struct v32_startup {
 
 void v32_startup_init(struct v32_startup *s, enum v32_std_role role,
                       int allow_4800, int allow_9600);
+void v32bis_startup_init(struct v32_startup*s,enum v32_std_role role,unsigned rates);
 void v32_startup_answer_tone(struct v32_startup *s);
 void v32_startup_carrier(struct v32_startup *s);
 void v32_startup_phase_reversal(struct v32_startup *s);

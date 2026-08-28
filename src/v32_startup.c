@@ -13,9 +13,18 @@ void v32_startup_init(struct v32_startup *s, enum v32_std_role role,
     s->role = role;
     s->allow_4800 = !!allow_4800;
     s->allow_9600 = !!allow_9600;
+    s->allowed_rates=(s->allow_4800?V32_RATE_4800:0)|(s->allow_9600?V32_RATE_9600:0);
     s->local_rate_word = v32_std_rate_word(s->allow_4800, s->allow_9600, 0);
     enter(s, role == V32_STD_CALL ? V32_START_WAIT_ANSWER_TONE : V32_START_AC,
           role == V32_STD_CALL ? 0 : 128);
+}
+
+void v32bis_startup_init(struct v32_startup*s,enum v32_std_role role,unsigned rates)
+{
+    *s=(struct v32_startup){0};s->role=role;s->allowed_rates=rates;
+    s->allow_4800=!!(rates&V32_RATE_4800);s->allow_9600=!!(rates&V32_RATE_9600);
+    s->local_rate_word=v32bis_rate_word(rates,1);
+    enter(s,role==V32_STD_CALL?V32_START_WAIT_ANSWER_TONE:V32_START_AC,role==V32_STD_CALL?0:128);
 }
 
 void v32_startup_answer_tone(struct v32_startup *s)
@@ -69,16 +78,19 @@ void v32_startup_segment_done(struct v32_startup *s)
 
 int v32_startup_rate_word(struct v32_startup *s, uint16_t word)
 {
-    int r4800, r9600, trellis;
+    int r4800, r9600, trellis,bis=0;unsigned remote_rates=0;
     if (s->phase != V32_START_RATE_1 && s->phase != V32_START_RATE_2)
         return 0;
-    if (v32_std_rate_decode(word, &r4800, &r9600, &trellis) < 0) return 0;
+    if(v32bis_rate_decode(word,&remote_rates,&trellis,&bis)<0)return 0;
+    r4800=!!(remote_rates&V32_RATE_4800);r9600=!!(remote_rates&V32_RATE_9600);
     (void)trellis;
     if (word == s->remote_rate_word) s->identical_rate_words++;
     else { s->remote_rate_word = word; s->identical_rate_words = 1; }
     if (s->identical_rate_words < 2) return 0;
-    s->selected_rate = s->allow_9600 && r9600 ? 9600 :
-                       s->allow_4800 && r4800 ? 4800 : 0;
+    if(bis&&(s->allowed_rates&(V32_RATE_7200|V32_RATE_12000|V32_RATE_14400)))
+        s->selected_rate=v32_highest_rate(s->allowed_rates&remote_rates);
+    else s->selected_rate = s->allow_9600 && r9600 ? 9600 :
+                            s->allow_4800 && r4800 ? 4800 : 0;
     if (!s->selected_rate) { enter(s, V32_START_FAILED, 0); return -1; }
     enter(s, V32_START_E, 16);
     return s->selected_rate;

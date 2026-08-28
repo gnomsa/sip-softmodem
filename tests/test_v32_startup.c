@@ -46,11 +46,24 @@ static void no_common_rate_fails(void)
     assert(s.phase == V32_START_FAILED);
 }
 
+static void bis_selects_common_rate(void)
+{
+    struct v32_startup s;unsigned local=V32_RATE_4800|V32_RATE_7200|V32_RATE_9600|V32_RATE_12000|V32_RATE_14400;
+    unsigned remote=V32_RATE_4800|V32_RATE_7200|V32_RATE_9600|V32_RATE_12000;
+    v32bis_startup_init(&s,V32_STD_CALL,local);s.phase=V32_START_RATE_1;
+    uint16_t word=v32bis_rate_word(remote,1);assert(v32_startup_rate_word(&s,word)==0);
+    assert(v32_startup_rate_word(&s,word)==12000&&s.selected_rate==12000);
+    v32bis_startup_init(&s,V32_STD_ANSWER,local);s.phase=V32_START_RATE_1;
+    word=v32_std_rate_word(1,1,0);assert(v32_startup_rate_word(&s,word)==0);
+    assert(v32_startup_rate_word(&s,word)==9600);
+}
+
 int main(void)
 {
     caller_selects_9600();
     answer_falls_back_4800();
     no_common_rate_fails();
-    puts("V.32 start-up: 9600 selection, 4800 fallback and no-common-rate pass");
+    bis_selects_common_rate();
+    puts("V.32/V.32bis start-up: 14400 family selection, V.32 fallback and no-common-rate pass");
     return 0;
 }
