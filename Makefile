@@ -280,7 +280,7 @@ tests/test_v34_trellis: tests/test_v34_trellis.c src/v34_trellis.c src/v34_data_
 tests/test_v34_b1_stream: tests/test_v34_b1_stream.c src/v34_b1_stream.c src/v34_qam_tx.c src/v34_trellis.c src/v34_data_mapper.c src/v34_mapper.c src/v34_b1.c src/v34_framing.c src/v34_training_symbols.c src/v34_training_rx.c src/v34_timing.c src/v34_caps.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
-tests/test_v34_data_stream: tests/test_v34_data_stream.c src/v34_data_stream.c src/v34_data_receiver.c src/v34_b1_receiver.c src/v34_data_decoder.c src/v34_b1_stream.c src/v34_qam_tx.c src/v34_trellis.c src/v34_data_mapper.c src/v34_mapper.c src/v34_b1.c src/v34_framing.c src/v34_training_symbols.c src/v34_training_rx.c src/v34_timing.c src/v34_caps.c src/pcma.c
+tests/test_v34_data_stream: tests/test_v34_data_stream.c src/v34_data_stream.c src/v34_data_receiver.c src/v34_uart.c src/v34_b1_receiver.c src/v34_data_decoder.c src/v34_b1_stream.c src/v34_qam_tx.c src/v34_trellis.c src/v34_data_mapper.c src/v34_mapper.c src/v34_b1.c src/v34_framing.c src/v34_training_symbols.c src/v34_training_rx.c src/v34_timing.c src/v34_caps.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
 tests/test_v34_data_decoder: tests/test_v34_data_decoder.c src/v34_data_decoder.c src/v34_trellis.c src/v34_data_mapper.c src/v34_mapper.c src/v34_b1.c src/v34_framing.c src/v34_training_symbols.c

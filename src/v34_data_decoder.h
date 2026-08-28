@@ -27,5 +27,13 @@ bool v34_decode_mapping_frame(v34_data_decoder *decoder,
                               bool high_frame,
                               uint8_t *scrambled_bits,
                               size_t *bit_count);
+bool v34_decode_mapping_frame_soft(v34_data_decoder *decoder,
+                                   double received_iq[4][2][2],
+                                   double coordinate_scale,
+                                   const uint8_t v0[4],
+                                   bool high_frame,
+                                   uint8_t *scrambled_bits,
+                                   size_t *bit_count,
+                                   v34_point decided[4][2]);
 
 #endif

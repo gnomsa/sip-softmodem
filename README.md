@@ -84,6 +84,8 @@ source code, binaries or VM images from other modem projects.
   differential and trellis state without repeating B1
 - an 8N1 asynchronous byte adapter accepts arbitrary PTY-sized writes, emits
   mark bits while idle, and reconstructs bytes from the primary-channel bits
+- trellis-aware soft candidate search repairs hard QAM decisions before shell
+  decoding; the PCMA test now carries arbitrary 8N1 byte patterns end to end
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full timing recovery, adaptive

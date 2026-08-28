@@ -2,6 +2,7 @@
 
 #include "v34_b1_receiver.h"
 #include "v34_data_receiver.h"
+#include "v34_uart.h"
 
 #include <assert.h>
 #include <math.h>
@@ -21,10 +22,14 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
     v34_b1_receiver b1_receiver;
     v34_data_stream data;
     v34_data_receiver receiver;
+    v34_uart uart_tx, uart_rx;
     v34_scrambler expected_scrambler;
     uint8_t input[V34_MAX_SUPERFRAME_BITS];
     uint8_t output[V34_MAX_SUPERFRAME_BITS];
+    uint8_t input_bytes[1024];
+    uint8_t output_bytes[1024];
     size_t input_count;
+    size_t transferred_bytes = 0;
     size_t i;
     unsigned superframe;
 
@@ -48,12 +53,18 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
     assert(input_count <= sizeof(input));
     expected_scrambler = b1.b1.scrambler_after;
     assert(v34_data_receiver_init_after_b1(&receiver, &b1_receiver));
+    v34_uart_init(&uart_tx);
+    v34_uart_init(&uart_rx);
     for (superframe = 0; superframe < superframe_count; ++superframe) {
         size_t output_count = 0;
+        size_t byte_count = input_count / 10u - 7u - superframe;
 
-        for (i = 0; i < input_count; ++i)
-            input[i] = (uint8_t)(((i * 13u) ^ (i >> 2u) ^
-                                  (i >> 5u) ^ superframe) & 1u);
+        assert(byte_count <= sizeof(input_bytes));
+        for (i = 0; i < byte_count; ++i)
+            input_bytes[i] = (uint8_t)((i * 73u) ^ (i >> 1u) ^ superframe);
+        assert(v34_uart_write(&uart_tx, input_bytes, byte_count) == byte_count);
+        assert(v34_uart_fill_bits(&uart_tx, input, input_count));
+        assert(v34_uart_tx_pending(&uart_tx) == 0u);
         if (superframe == 0u) {
             assert(v34_data_stream_init_after_b1(
                 &data, &b1, input, input_count));
@@ -82,11 +93,25 @@ static void run(v34_symbol_rate rate, v34_trellis_kind trellis,
         assert(receiver.symbols == data.symbols);
         assert(output_count == input_count);
         assert(memcmp(output, input, input_count) == 0);
+        assert(v34_uart_feed_bits(&uart_rx, output, output_count));
+        assert(v34_uart_read(&uart_rx, output_bytes, sizeof(output_bytes)) ==
+               byte_count);
+        assert(memcmp(output_bytes, input_bytes, byte_count) == 0);
+        assert(uart_rx.framing_errors == 0u);
+        transferred_bytes += byte_count;
         assert(v34_data_receiver_read(
             &receiver, output, sizeof(output)) == 0u);
         assert(data.active_samples == 2240u * (superframe + 1u));
         assert(fabs(receiver.rx.carrier_step - data.tx.carrier_step) < 2e-5);
     }
+    if (rate == V34_SYMBOL_3429 && trellis == V34_TRELLIS_64 && expanded &&
+        frequency_offset == 0.0)
+        assert(receiver.soft_corrections > 0u);
+    if (rate == V34_SYMBOL_3429 && trellis == V34_TRELLIS_64 && expanded &&
+        frequency_offset == 0.0)
+        printf("v34 33600 soft path: %zu bytes, %llu corrected symbols\n",
+               transferred_bytes,
+               (unsigned long long)receiver.soft_corrections);
 }
 
 int main(void)

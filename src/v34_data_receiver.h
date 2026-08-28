@@ -9,6 +9,7 @@ typedef struct {
     v34_training_rx rx;
     v34_scrambler descrambler;
     v34_point received[4][2];
+    double received_iq[4][2][2];
     uint8_t output_bits[V34_MAX_SUPERFRAME_BITS];
     double coordinate_scale;
     size_t output_count;
@@ -17,6 +18,7 @@ typedef struct {
     unsigned mapping_frame;
     unsigned received_symbol;
     uint64_t symbols;
+    uint64_t soft_corrections;
     bool complete;
     bool failed;
     bool track_carrier;

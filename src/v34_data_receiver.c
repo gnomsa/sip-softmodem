@@ -7,6 +7,7 @@ static bool finish_mapping_frame(v34_data_receiver *receiver)
 {
     uint8_t v0[4];
     uint8_t scrambled[V34_MAX_DATA_FRAME_BITS];
+    v34_point hard[4][2];
     size_t scrambled_count = 0;
     size_t bit;
     unsigned j;
@@ -15,13 +16,22 @@ static bool finish_mapping_frame(v34_data_receiver *receiver)
         v0[j] = (uint8_t)v34_sync_inversion(
             &receiver->geometry, receiver->data_frame,
             4u * receiver->mapping_frame + j);
-    if (!v34_decode_mapping_frame(
-            &receiver->decoder, receiver->received, v0,
+    memcpy(hard, receiver->received, sizeof(hard));
+    if (!v34_decode_mapping_frame_soft(
+            &receiver->decoder, receiver->received_iq,
+            receiver->coordinate_scale, v0,
             v34_mapping_frame_high(&receiver->geometry,
                                    receiver->mapping_frame),
-            scrambled, &scrambled_count) ||
+            scrambled, &scrambled_count, receiver->received) ||
         receiver->output_count + scrambled_count > V34_MAX_SUPERFRAME_BITS)
         return false;
+    for (j = 0; j < 4u; ++j) {
+        unsigned symbol;
+        for (symbol = 0; symbol < 2u; ++symbol)
+            if (hard[j][symbol].re != receiver->received[j][symbol].re ||
+                hard[j][symbol].im != receiver->received[j][symbol].im)
+                receiver->soft_corrections++;
+    }
     for (bit = 0; bit < scrambled_count; ++bit)
         receiver->output_bits[receiver->output_count++] =
             (uint8_t)v34_descramble_bit(&receiver->descrambler,
@@ -84,6 +94,10 @@ static bool feed_sample(v34_data_receiver *receiver, uint8_t pcma)
         return true;
     point = &receiver->received[receiver->received_symbol / 2u]
                                [receiver->received_symbol % 2u];
+    receiver->received_iq[receiver->received_symbol / 2u]
+                         [receiver->received_symbol % 2u][0] = in_phase;
+    receiver->received_iq[receiver->received_symbol / 2u]
+                         [receiver->received_symbol % 2u][1] = quadrature;
     if (!v34_slice_iq(in_phase, quadrature,
                       receiver->coordinate_scale, point))
         return false;
