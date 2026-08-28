@@ -21,11 +21,11 @@ bool v34_training_rx_init(v34_training_rx *rx, v34_symbol_rate rate,
     return v34_symbol_clock_init(&rx->clock, rate, sample_rate);
 }
 
-bool v34_training_rx_pcma(v34_training_rx *rx, uint8_t sample,
-                          uint8_t *phase_pi_6, double *magnitude)
+bool v34_training_rx_pcma_iq(v34_training_rx *rx, uint8_t sample,
+                             double *in_phase, double *quadrature)
 {
     double x, c, s;
-    if (rx == NULL || phase_pi_6 == NULL)
+    if (rx == NULL || in_phase == NULL || quadrature == NULL)
         return false;
     x = pcma_decode(sample);
     c = cos(rx->carrier_phase);
@@ -42,18 +42,33 @@ bool v34_training_rx_pcma(v34_training_rx *rx, uint8_t sample,
         return false;
     {
         double det = rx->cc * rx->ss - rx->cs * rx->cs;
-        double i = 0.0, q = 0.0, angle;
-        long decision;
+        *in_phase = 0.0;
+        *quadrature = 0.0;
         if (fabs(det) > 1e-9) {
-            i = (rx->ss * rx->yc + rx->cs * rx->ys) / det;
-            q = (rx->cs * rx->yc + rx->cc * rx->ys) / det;
+            *in_phase = (rx->ss * rx->yc + rx->cs * rx->ys) / det;
+            *quadrature = (rx->cs * rx->yc + rx->cc * rx->ys) / det;
         }
-        angle = atan2(q, i);
-        if (angle < 0.0) angle += 2.0 * M_PI;
-        decision = lround(angle * 6.0 / M_PI) % 12;
-        *phase_pi_6 = (uint8_t)decision;
-        if (magnitude != NULL) *magnitude = hypot(i, q);
     }
     rx->yc = rx->ys = rx->cc = rx->ss = rx->cs = 0.0;
+    return true;
+}
+
+bool v34_training_rx_pcma(v34_training_rx *rx, uint8_t sample,
+                          uint8_t *phase_pi_6, double *magnitude)
+{
+    double i;
+    double q;
+    double angle;
+    long decision;
+
+    if (!phase_pi_6 || !v34_training_rx_pcma_iq(rx, sample, &i, &q))
+        return false;
+    angle = atan2(q, i);
+    if (angle < 0.0)
+        angle += 2.0 * M_PI;
+    decision = lround(angle * 6.0 / M_PI) % 12;
+    *phase_pi_6 = (uint8_t)decision;
+    if (magnitude)
+        *magnitude = hypot(i, q);
     return true;
 }

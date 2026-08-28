@@ -22,5 +22,7 @@ bool v34_training_rx_init(v34_training_rx *rx, v34_symbol_rate rate,
                           bool high_carrier, unsigned sample_rate);
 bool v34_training_rx_pcma(v34_training_rx *rx, uint8_t sample,
                           uint8_t *phase_pi_6, double *magnitude);
+bool v34_training_rx_pcma_iq(v34_training_rx *rx, uint8_t sample,
+                             double *in_phase, double *quadrature);
 
 #endif
