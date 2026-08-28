@@ -17,6 +17,7 @@ bool v34_pp_phase(unsigned symbol, uint8_t *phase_pi_6);
 bool v34_s_phase(unsigned symbol, bool reversed, uint8_t *phase_pi_6);
 void v34_scrambler_init(v34_scrambler *scrambler, bool call_modem);
 unsigned v34_scramble_bit(v34_scrambler *scrambler, unsigned input);
+unsigned v34_descramble_bit(v34_scrambler *descrambler, unsigned input);
 bool v34_trn4_phase(v34_scrambler *scrambler, uint8_t *phase_pi_6);
 bool v34_j4_phase(v34_scrambler *scrambler, unsigned *bit_index,
                   unsigned *previous_rotation, uint8_t *phase_pi_6);
@@ -24,5 +25,9 @@ bool v34_j_prime4_phase(v34_scrambler *scrambler, unsigned *bit_index,
                         unsigned *previous_rotation, uint8_t *phase_pi_6);
 bool v34_e4_phase(v34_scrambler *scrambler, unsigned *bit_index,
                   unsigned *previous_rotation, uint8_t *phase_pi_6);
+bool v34_packed_bits4_phase(v34_scrambler *scrambler, const uint8_t *bits,
+                            unsigned bit_count, unsigned *bit_index,
+                            unsigned *previous_rotation,
+                            uint8_t *phase_pi_6);
 
 #endif

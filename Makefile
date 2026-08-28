@@ -223,7 +223,7 @@ tests/test_v34_training_rx: tests/test_v34_training_rx.c src/v34_training_rx.c s
 tests/test_v34_phase3_link: tests/test_v34_phase3_link.c src/v34_phase3_stream.c src/v34_phase3.c src/v34_timing.c src/v34_training_symbols.c src/v34_training_tx.c src/v34_training_rx.c src/v34_j_detector.c src/v34_caps.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
-tests/test_v34_mp: tests/test_v34_mp.c src/v34_mp.c src/v34_info.c src/v34_caps.c
+tests/test_v34_mp: tests/test_v34_mp.c src/v34_mp.c src/v34_info.c src/v34_caps.c src/v34_training_symbols.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
 clean:

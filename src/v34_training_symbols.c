@@ -48,6 +48,17 @@ unsigned v34_scramble_bit(v34_scrambler *scrambler, unsigned input)
     return output;
 }
 
+unsigned v34_descramble_bit(v34_scrambler *s, unsigned input)
+{
+    unsigned output;
+    if (s == NULL || (s->tap != 5u && s->tap != 18u))
+        return 0;
+    output = (input & 1u) ^ ((s->history >> (s->tap - 1u)) & 1u) ^
+             ((s->history >> 22u) & 1u);
+    s->history = ((s->history << 1u) | (input & 1u)) & 0x7fffffu;
+    return output;
+}
+
 bool v34_trn4_phase(v34_scrambler *scrambler, uint8_t *phase_pi_6)
 {
     unsigned i1, i2, index;
@@ -109,4 +120,27 @@ bool v34_e4_phase(v34_scrambler *scrambler, unsigned *bit_index,
     };
     return coded_bits4_phase(scrambler, ones, 20, false, bit_index,
                              previous_rotation, phase_pi_6);
+}
+
+bool v34_packed_bits4_phase(v34_scrambler *scrambler, const uint8_t *bits,
+                            unsigned bit_count, unsigned *bit_index,
+                            unsigned *previous_rotation,
+                            uint8_t *phase_pi_6)
+{
+    unsigned i1, i2, input, rotation;
+    if (scrambler == NULL || bits == NULL || bit_index == NULL ||
+        previous_rotation == NULL || phase_pi_6 == NULL ||
+        *bit_index + 2u > bit_count)
+        return false;
+    i1 = v34_scramble_bit(scrambler,
+                          (bits[*bit_index / 8u] >> (*bit_index % 8u)) & 1u);
+    (*bit_index)++;
+    i2 = v34_scramble_bit(scrambler,
+                          (bits[*bit_index / 8u] >> (*bit_index % 8u)) & 1u);
+    (*bit_index)++;
+    input = 2u * i2 + i1;
+    rotation = (input + *previous_rotation) & 3u;
+    *previous_rotation = rotation;
+    *phase_pi_6 = (uint8_t)((12u - 3u * rotation) % 12u);
+    return true;
 }
