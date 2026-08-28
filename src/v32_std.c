@@ -3,6 +3,8 @@ void v32_std_scrambler_init(struct v32_std_scrambler*s,enum v32_std_role role){s
 int v32_std_scramble(struct v32_std_scrambler*s,int in){int out=(in&1)^((s->history>>(s->tap-1))&1)^((s->history>>22)&1);s->history=((s->history<<1)|(unsigned)out)&0x7fffff;return out;}
 int v32_std_descramble(struct v32_std_scrambler*s,int in){int out=(in&1)^((s->history>>(s->tap-1))&1)^((s->history>>22)&1);s->history=((s->history<<1)|(unsigned)(in&1))&0x7fffff;return out;}
 unsigned v32_std_diff_encode(unsigned q,unsigned prev){static const unsigned table[4][4]={{1,3,0,2},{0,1,2,3},{3,2,1,0},{2,0,3,1}};return table[q&3][prev&3];}
+unsigned v32bis_trellis_diff_encode(unsigned q,unsigned prev){static const unsigned table[4][4]={{0,1,2,3},{1,0,3,2},{2,3,1,0},{3,2,0,1}};return table[q&3][prev&3];}
+int v32bis_trellis_diff_decode(unsigned output,unsigned prev){for(unsigned q=0;q<4;q++)if(v32bis_trellis_diff_encode(q,prev)==(output&3))return(int)q;return-1;}
 static uint16_t base(unsigned sync){uint16_t w=(uint16_t)(sync&15);w|=(1u<<7)|(1u<<11)|(1u<<15);return w;}
 uint16_t v32_std_rate_word(int r4800,int r9600,int trellis){uint16_t w=base(0);if(r4800)w|=1u<<5;if(r9600)w|=1u<<6;if(trellis)w|=1u<<8;return w;}
 uint16_t v32_std_e_word(int rate,int trellis){uint16_t w=base(15);if(rate==4800)w|=1u<<5;if(rate==9600)w|=1u<<6;if(trellis)w|=1u<<8;return w;}
