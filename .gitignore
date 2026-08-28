@@ -1,0 +1,3 @@
+*.o
+/sip-softmodem
+/tests/test_core

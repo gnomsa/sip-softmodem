@@ -1,0 +1,15 @@
+[Unit]
+Description=SIP PCMA software modem
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+RuntimeDirectory=sip-softmodem
+EnvironmentFile=/etc/sip-softmodem.conf
+ExecStart=/usr/local/sbin/sip-softmodem
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
