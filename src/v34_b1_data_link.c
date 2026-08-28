@@ -30,6 +30,39 @@ bool v34_b1_data_link_init(v34_b1_data_link *link,
                !call_modem, sample_rate, coordinate_scale);
 }
 
+bool v34_b1_data_link_init_after_phase4(
+    v34_b1_data_link *link,
+    bool call_modem,
+    const v34_phase4_stream *transmitted_phase4,
+    const v34_phase4_receiver *received_phase4,
+    v34_symbol_rate tx_symbol_rate,
+    unsigned tx_data_rate,
+    v34_symbol_rate rx_symbol_rate,
+    unsigned rx_data_rate,
+    v34_trellis_kind trellis,
+    bool expanded_shaping,
+    unsigned sample_rate,
+    double coordinate_scale)
+{
+    if (!transmitted_phase4 || !transmitted_phase4->complete ||
+        transmitted_phase4->symbols != 618u || !received_phase4 ||
+        !received_phase4->complete || received_phase4->failed ||
+        received_phase4->symbols != 618u ||
+        !v34_b1_data_link_init(
+            link, call_modem, tx_symbol_rate, tx_data_rate,
+            rx_symbol_rate, rx_data_rate, trellis, expanded_shaping,
+            sample_rate, coordinate_scale))
+        return false;
+
+    /* E ends on a symbol boundary.  Carry both oscillators and the rational
+     * symbol clocks across that boundary instead of reacquiring B1. */
+    link->tx_b1.clock = transmitted_phase4->clock;
+    link->tx_b1.tx.carrier_phase = transmitted_phase4->tx.carrier_phase;
+    link->tx_b1.tx.carrier_step = transmitted_phase4->tx.carrier_step;
+    link->rx_b1.rx = received_phase4->rx;
+    return true;
+}
+
 static bool start_data(v34_b1_data_link *link)
 {
     if (link->data_ready)

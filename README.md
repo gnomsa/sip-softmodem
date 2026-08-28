@@ -93,6 +93,8 @@ source code, binaries or VM images from other modem projects.
   after the two B1 receivers confirm their state
 - autonomous Phase 4 PCMA streams and receivers validate J-prime, 512 TRN
   symbols, MP, acknowledged MP-prime and E in both directions
+- the E-to-B1 transition carries fractional symbol-clock and carrier phase
+  state into asymmetric 33600/28800 data channels without reacquisition
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full timing recovery, adaptive

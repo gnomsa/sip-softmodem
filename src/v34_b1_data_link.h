@@ -2,6 +2,8 @@
 #define SOFTMODEM_V34_B1_DATA_LINK_H
 
 #include "v34_data_channel.h"
+#include "v34_phase4_receiver.h"
+#include "v34_phase4_stream.h"
 
 typedef struct {
     v34_b1_stream tx_b1;
@@ -25,6 +27,19 @@ bool v34_b1_data_link_init(v34_b1_data_link *link,
                            bool expanded_shaping,
                            unsigned sample_rate,
                            double coordinate_scale);
+bool v34_b1_data_link_init_after_phase4(
+    v34_b1_data_link *link,
+    bool call_modem,
+    const v34_phase4_stream *transmitted_phase4,
+    const v34_phase4_receiver *received_phase4,
+    v34_symbol_rate tx_symbol_rate,
+    unsigned tx_data_rate,
+    v34_symbol_rate rx_symbol_rate,
+    unsigned rx_data_rate,
+    v34_trellis_kind trellis,
+    bool expanded_shaping,
+    unsigned sample_rate,
+    double coordinate_scale);
 size_t v34_b1_data_link_write(v34_b1_data_link *link,
                               const uint8_t *bytes, size_t count);
 size_t v34_b1_data_link_read(v34_b1_data_link *link,
