@@ -1,0 +1,10 @@
+#include "v42_xid.h"
+#include <string.h>
+#define FI 0x82
+#define GI_PARAMETER 0x80
+static unsigned min(unsigned a,unsigned b){return a<b?a:b;}
+void v42_xid_defaults(struct v42_xid_params*p){*p=(struct v42_xid_params){128,128,15,15,V42_XID_REQUIRED_FUNCTIONS};}
+static void param(uint8_t*out,size_t*at,uint8_t pi,uint32_t value,unsigned bytes){out[(*at)++]=pi;out[(*at)++]=(uint8_t)bytes;for(unsigned i=0;i<bytes;i++)out[(*at)++]=(uint8_t)(value>>(8*(bytes-1-i)));}
+size_t v42_xid_encode(const struct v42_xid_params*p,uint8_t*out,size_t cap){if(!p||!out||cap<27||!p->n401_tx||!p->n401_rx||!p->k_tx||!p->k_rx||p->k_tx>127||p->k_rx>127)return 0;size_t at=0;out[at++]=FI;out[at++]=GI_PARAMETER;size_t gl=at;at+=2;uint32_t functions=p->optional_functions|V42_XID_REQUIRED_FUNCTIONS;out[at++]=3;out[at++]=4;for(unsigned i=0;i<4;i++)out[at++]=(uint8_t)(functions>>(8*i));param(out,&at,5,p->n401_tx*8,2);param(out,&at,6,p->n401_rx*8,2);param(out,&at,7,p->k_tx,1);param(out,&at,8,p->k_rx,1);size_t n=at-gl-2;out[gl]=(uint8_t)(n>>8);out[gl+1]=(uint8_t)n;return at;}
+int v42_xid_decode(const uint8_t*d,size_t n,struct v42_xid_params*p){if(!d||!p||n<4||d[0]!=FI||d[1]!=GI_PARAMETER)return-1;size_t gl=((size_t)d[2]<<8)|d[3];if(gl>n-4)return-1;v42_xid_defaults(p);size_t at=4,end=4+gl;while(at+2<=end){unsigned pi=d[at++],pl=d[at++];if(at+pl>end||!pl||pl>4)return-1;uint32_t v=0;if(pi==3){for(unsigned i=0;i<pl;i++)v|=(uint32_t)d[at+i]<<(8*i);}else for(unsigned i=0;i<pl;i++)v=(v<<8)|d[at+i];at+=pl;switch(pi){case 3:p->optional_functions=v;break;case 5:if(v%8)return-1;p->n401_tx=v/8;break;case 6:if(v%8)return-1;p->n401_rx=v/8;break;case 7:p->k_tx=v;break;case 8:p->k_rx=v;break;default:break;}}if(at!=end||!p->n401_tx||!p->n401_rx||!p->k_tx||!p->k_rx||p->k_tx>127||p->k_rx>127)return-1;return 0;}
+void v42_xid_intersect(const struct v42_xid_params*a,const struct v42_xid_params*b,struct v42_xid_params*r){r->n401_tx=min(a->n401_tx,b->n401_rx);r->n401_rx=min(a->n401_rx,b->n401_tx);r->k_tx=min(a->k_tx,b->k_rx);r->k_rx=min(a->k_rx,b->k_tx);r->optional_functions=(a->optional_functions&b->optional_functions)|V42_XID_REQUIRED_FUNCTIONS;}

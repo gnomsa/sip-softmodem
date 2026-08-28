@@ -1,0 +1,5 @@
+#include "v42_xid.h"
+#include "v42_lapm.h"
+#include <assert.h>
+#include <stdio.h>
+int main(void){struct v42_xid_params a={256,192,31,15,V42_XID_SINGLE_SREJ|V42_XID_FCS32},b,chosen;uint8_t wire[64],bits[V42_HDLC_MAX_BITS];size_t n=v42_xid_encode(&a,wire,sizeof wire);assert(n&&wire[0]==0x82&&wire[1]==0x80);assert(v42_xid_decode(wire,n,&b)==0);assert(b.n401_tx==256&&b.n401_rx==192&&b.k_tx==31&&b.k_rx==15&&b.optional_functions==(a.optional_functions|V42_XID_REQUIRED_FUNCTIONS));struct v42_lapm_frame frame;size_t nb=v42_lapm_encode_u(V42_LAPM_XID,1,0,wire,n,bits,sizeof bits);assert(nb&&v42_lapm_decode(bits,nb,&frame)==0&&frame.u_control==V42_LAPM_XID);assert(v42_xid_decode(frame.info,frame.info_count,&b)==0&&b.n401_tx==256);b=(struct v42_xid_params){128,512,8,20,V42_XID_SINGLE_SREJ};v42_xid_intersect(&a,&b,&chosen);assert(chosen.n401_tx==256&&chosen.n401_rx==128&&chosen.k_tx==20&&chosen.k_rx==8&&chosen.optional_functions==(V42_XID_SINGLE_SREJ|V42_XID_REQUIRED_FUNCTIONS));wire[2]=0xff;assert(v42_xid_decode(wire,n,&b)<0);puts("V.42 XID frame: N401, k, functions and asymmetric intersection pass");return 0;}

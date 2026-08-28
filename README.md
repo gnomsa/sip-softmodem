@@ -61,7 +61,11 @@ source code, binaries or VM images from other modem projects.
   as well as T401 recovery when the final I frame or its RR is lost
 - the LAPM link controller establishes with SABME/UA, retries a lost SABME on
   T401, and performs orderly DISC/UA release (live data-path integration and
-  XID parameter negotiation are still pending)
+  live data-path integration are still pending)
+- XID parameter fields negotiate directional N401 and window k values and
+  intersect optional functions, including single-SREJ and 32-bit-FCS requests;
+  the encoder includes the mandatory ISO/HDLC function mask and the complete
+  XID information is tested inside an FCS-protected LAPM frame
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
