@@ -3,7 +3,7 @@ CFLAGS ?= -O2 -g
 CFLAGS += -std=c11 -Wall -Wextra -Wpedantic -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
 LDLIBS += -lm -lutil
 
-SRC := src/main.c src/at.c src/pcma.c src/rtp.c src/jitter.c src/sip.c src/v21.c src/v22.c src/v22bis.c src/v22_handshake.c src/v32.c src/v32_std.c src/v32_training.c src/v32_line.c src/v32_rate.c src/v32_e.c src/v32_data.c src/v32_qam.c src/v32_startup.c src/v32_retrain.c src/v32_session.c src/v8.c src/v8_fsk.c src/v8_session.c src/ansam.c src/tone_detector.c src/pty.c
+SRC := src/main.c src/at.c src/pcma.c src/rtp.c src/jitter.c src/sip.c src/v21.c src/v22.c src/v22bis.c src/v22_handshake.c src/v32.c src/v32_std.c src/v32_training.c src/v32_line.c src/v32_rate.c src/v32_e.c src/v32_data.c src/v32_qam.c src/v32_startup.c src/v32_retrain.c src/v32_session.c src/v42_hdlc.c src/v8.c src/v8_fsk.c src/v8_session.c src/ansam.c src/tone_detector.c src/pty.c
 OBJ := $(SRC:.c=.o)
 
 .PHONY: all clean test link-test integration-test integration-v32-test integration-v32-4800-test
@@ -12,7 +12,7 @@ all: sip-softmodem
 sip-softmodem: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $(OBJ) $(LDLIBS)
 
-test: tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 tests/test_v8_fsk tests/test_v8_session tests/test_ansam tests/test_v32_std tests/test_v32_training tests/test_v32_line tests/test_v32_rate tests/test_v32_e tests/test_v32_data tests/test_v32_qam tests/test_v32_startup tests/test_v32_startup_link tests/test_v32_retrain tests/test_v32_session
+test: tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 tests/test_v8_fsk tests/test_v8_session tests/test_ansam tests/test_v32_std tests/test_v32_training tests/test_v32_line tests/test_v32_rate tests/test_v32_e tests/test_v32_data tests/test_v32_qam tests/test_v32_startup tests/test_v32_startup_link tests/test_v32_retrain tests/test_v32_session tests/test_v42_hdlc
 	./tests/test_core
 	./tests/test_tones
 	./tests/test_v22_handshake
@@ -31,6 +31,7 @@ test: tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 te
 	./tests/test_v32_startup_link
 	./tests/test_v32_retrain
 	./tests/test_v32_session
+	./tests/test_v42_hdlc
 
 link-test: tests/dsp_link
 	./tests/dsp_link
@@ -101,5 +102,8 @@ tests/test_v32_retrain: tests/test_v32_retrain.c src/v32_retrain.c
 tests/test_v32_session: tests/test_v32_session.c src/v32_std.c src/v32_training.c src/v32_line.c src/v32_rate.c src/v32_e.c src/v32_startup.c src/v32_retrain.c src/v32_data.c src/v32_qam.c src/v32_session.c src/pcma.c
 	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
 
+tests/test_v42_hdlc: tests/test_v42_hdlc.c src/v42_hdlc.c
+	$(CC) $(CFLAGS) -Isrc -o $@ $^ $(LDLIBS)
+
 clean:
-	rm -f $(OBJ) sip-softmodem tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 tests/test_v8_fsk tests/test_v8_session tests/test_ansam tests/test_v32_std tests/test_v32_training tests/test_v32_line tests/test_v32_rate tests/test_v32_e tests/test_v32_data tests/test_v32_qam tests/test_v32_startup tests/test_v32_startup_link tests/test_v32_retrain tests/test_v32_session tests/dsp_link
+	rm -f $(OBJ) sip-softmodem tests/test_core tests/test_tones tests/test_v22_handshake tests/test_v8 tests/test_v8_fsk tests/test_v8_session tests/test_ansam tests/test_v32_std tests/test_v32_training tests/test_v32_line tests/test_v32_rate tests/test_v32_e tests/test_v32_data tests/test_v32_qam tests/test_v32_startup tests/test_v32_startup_link tests/test_v32_retrain tests/test_v32_session tests/test_v42_hdlc tests/dsp_link

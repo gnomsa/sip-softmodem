@@ -50,6 +50,9 @@ source code, binaries or VM images from other modem projects.
   and releases it only after the new E and marking transition completes
 - a closed slave PTY is probed with a 250 ms backoff, avoiding a `POLLHUP`
   busy-loop while no terminal program or `pppd` has the device open
+- initial V.42 LAPM/HDLC primitives implement the 16-bit FCS, LSB-first flags,
+  zero insertion/removal after five contiguous one bits, and rejection of
+  corrupted frames (not connected to the live data path yet)
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
