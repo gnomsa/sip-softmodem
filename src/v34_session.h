@@ -37,6 +37,8 @@ typedef struct {
     size_t pending_head;
     size_t pending_tail;
     v34_session_state state;
+    bool phase4_tx_ready;
+    bool phase4_rx_ready;
 } v34_session;
 
 bool v34_session_init(v34_session *session,

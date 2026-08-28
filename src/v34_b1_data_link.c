@@ -152,11 +152,29 @@ bool v34_b1_data_link_receive(
     if (!link || !pcma || link->failed)
         return false;
     if (link->data_ready) {
+        if (!link->rx_data_started) {
+            uint8_t silence = pcma_encode(0);
+            for (sample = 0; sample < V34_PCMA_PACKET_SAMPLES; ++sample)
+                if (pcma[sample] != silence)
+                    break;
+            if (sample == V34_PCMA_PACKET_SAMPLES)
+                return true;
+            link->rx_data_started = true;
+        }
         if (!v34_data_channel_receive(&link->data, pcma)) {
             link->failed = true;
             return false;
         }
         return true;
+    }
+    if (!link->rx_b1_started) {
+        uint8_t silence = pcma_encode(0);
+        for (sample = 0; sample < V34_PCMA_PACKET_SAMPLES; ++sample)
+            if (pcma[sample] != silence)
+                break;
+        if (sample == V34_PCMA_PACKET_SAMPLES)
+            return start_data(link);
+        link->rx_b1_started = true;
     }
     for (sample = 0; sample < V34_PCMA_PACKET_SAMPLES; ++sample)
         if (!v34_b1_receiver_feed(&link->rx_b1, pcma[sample])) {

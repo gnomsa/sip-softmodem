@@ -13,6 +13,8 @@ typedef struct {
     size_t pending_head;
     size_t pending_tail;
     uint64_t packets;
+    bool rx_b1_started;
+    bool rx_data_started;
     bool data_ready;
     bool failed;
 } v34_b1_data_link;

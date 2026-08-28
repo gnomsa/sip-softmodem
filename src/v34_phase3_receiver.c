@@ -86,8 +86,11 @@ size_t v34_phase3_receiver_feed(v34_phase3_receiver *r,
         if (!v34_training_rx_pcma(&r->rx, pcma[i], &phase, NULL))
             continue;
         if (event->signal == V34_P3_J) {
-            if (v34_j_detector_feed(&r->j_detector, phase))
+            bool matched = v34_j_detector_feed(&r->j_detector, phase);
+            if (matched)
                 r->j_ready = true;
+            else if (r->j_ready)
+                r->j_mismatch = true;
             r->scrambler = r->j_detector.expected_scrambler;
             r->trn_rotation = r->j_detector.expected_rotation;
             continue;
@@ -112,6 +115,11 @@ size_t v34_phase3_receiver_feed(v34_phase3_receiver *r,
 bool v34_phase3_receiver_j_detected(const v34_phase3_receiver *r)
 {
     return r != NULL && r->j_ready && !r->failed;
+}
+
+bool v34_phase3_receiver_j_ended(const v34_phase3_receiver *r)
+{
+    return r != NULL && r->j_ready && r->j_mismatch && !r->failed;
 }
 
 bool v34_phase3_receiver_finish_j(v34_phase3_receiver *r)

@@ -21,6 +21,7 @@ typedef struct {
     uint32_t event_symbol;
     unsigned trn_rotation;
     bool j_ready;
+    bool j_mismatch;
     bool failed;
 } v34_phase3_receiver;
 
@@ -31,6 +32,7 @@ bool v34_phase3_receiver_init(v34_phase3_receiver *receiver,
 size_t v34_phase3_receiver_feed(v34_phase3_receiver *receiver,
                                 const uint8_t *pcma, size_t count);
 bool v34_phase3_receiver_j_detected(const v34_phase3_receiver *receiver);
+bool v34_phase3_receiver_j_ended(const v34_phase3_receiver *receiver);
 bool v34_phase3_receiver_finish_j(v34_phase3_receiver *receiver);
 bool v34_phase3_receiver_complete(const v34_phase3_receiver *receiver);
 bool v34_phase3_receiver_failed(const v34_phase3_receiver *receiver);

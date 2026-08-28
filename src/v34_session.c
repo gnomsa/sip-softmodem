@@ -4,43 +4,49 @@
 
 #define SESSION_QUEUE_MASK (V34_UART_QUEUE_SIZE - 1u)
 
-static bool start_phase4(v34_session *s)
+static bool start_phase4_tx(v34_session *s)
 {
     bool call = s->config.call_modem;
     if (!v34_phase4_stream_init(
             &s->phase4_tx, call, &s->phase3_tx.scrambler,
             s->phase3_tx.j_rotation, &s->config.mp,
             s->config.symbol_rate, call, s->config.sample_rate,
-            s->config.training_amplitude) ||
-        !v34_phase4_receiver_init(
+            s->config.training_amplitude))
+        return false;
+    s->phase4_tx_ready = true;
+    if (s->phase4_rx_ready)
+        s->state = V34_SESSION_PHASE4;
+    return true;
+}
+
+static bool start_phase4_rx(v34_session *s)
+{
+    bool call = s->config.call_modem;
+    if (!v34_phase4_receiver_init(
             &s->phase4_rx, !call, &s->phase3_rx.scrambler,
             s->phase3_rx.trn_rotation, s->config.symbol_rate, !call,
             s->config.sample_rate))
         return false;
-    s->state = V34_SESSION_PHASE4;
+    s->phase4_rx_ready = true;
+    if (s->phase4_tx_ready)
+        s->state = V34_SESSION_PHASE4;
     return true;
 }
 
-static bool finish_phase3_if_ready(v34_session *s, bool finish_receiver)
+static bool finish_phase3_tx_if_ready(v34_session *s)
 {
     const v34_phase3_event *tx_event;
     if (s->state != V34_SESSION_PHASE3 ||
         !v34_phase3_receiver_j_detected(&s->phase3_rx))
         return true;
-    if (!v34_phase3_stream_complete(&s->phase3_tx)) {
+    if (!s->phase4_tx_ready) {
         tx_event = v34_phase3_current(&s->phase3_tx.cursor);
         if (tx_event == NULL || tx_event->signal != V34_P3_J)
             return true;
-        if (!v34_phase3_stream_finish_j(&s->phase3_tx))
+        if (!v34_phase3_stream_finish_j(&s->phase3_tx) ||
+            !start_phase4_tx(s))
             return false;
     }
-    if (finish_receiver &&
-        !v34_phase3_receiver_complete(&s->phase3_rx) &&
-        !v34_phase3_receiver_finish_j(&s->phase3_rx))
-        return false;
-    if (v34_phase3_stream_complete(&s->phase3_tx) &&
-        v34_phase3_receiver_complete(&s->phase3_rx) && !start_phase4(s))
-        return false;
     return true;
 }
 
@@ -118,14 +124,15 @@ bool v34_session_generate(v34_session *s,
 {
     if (s == NULL || pcma == NULL || s->state == V34_SESSION_FAILED)
         return false;
-    if (s->state == V34_SESSION_PHASE3) {
+    if (s->state == V34_SESSION_PHASE3 && !s->phase4_tx_ready) {
         if (v34_phase3_stream_generate(
                 &s->phase3_tx, pcma, V34_PCMA_PACKET_SAMPLES) !=
-            V34_PCMA_PACKET_SAMPLES || !finish_phase3_if_ready(s, false))
+            V34_PCMA_PACKET_SAMPLES || !finish_phase3_tx_if_ready(s))
             return fail(s);
         return true;
     }
-    if (s->state == V34_SESSION_PHASE4) {
+    if ((s->state == V34_SESSION_PHASE3 && s->phase4_tx_ready) ||
+        s->state == V34_SESSION_PHASE4) {
         if (v34_phase4_stream_generate(
                 &s->phase4_tx, pcma, V34_PCMA_PACKET_SAMPLES) !=
             V34_PCMA_PACKET_SAMPLES)
@@ -144,14 +151,26 @@ bool v34_session_receive(v34_session *s,
     size_t sample;
     if (s == NULL || pcma == NULL || s->state == V34_SESSION_FAILED)
         return false;
-    if (s->state == V34_SESSION_PHASE3) {
+    if (s->state == V34_SESSION_PHASE3 && !s->phase4_rx_ready) {
+        v34_phase3_receiver saved = s->phase3_rx;
+        bool watching_j = v34_phase3_receiver_j_detected(&saved);
         if (v34_phase3_receiver_feed(
                 &s->phase3_rx, pcma, V34_PCMA_PACKET_SAMPLES) !=
-            V34_PCMA_PACKET_SAMPLES || !finish_phase3_if_ready(s, true))
+            V34_PCMA_PACKET_SAMPLES || !finish_phase3_tx_if_ready(s))
             return fail(s);
+        if (watching_j && v34_phase3_receiver_j_ended(&s->phase3_rx)) {
+            s->phase3_rx = saved;
+            if (!v34_phase3_receiver_finish_j(&s->phase3_rx) ||
+                !start_phase4_rx(s))
+                return fail(s);
+            for (sample = 0; sample < V34_PCMA_PACKET_SAMPLES; ++sample)
+                if (!v34_phase4_receiver_feed(&s->phase4_rx, pcma[sample]))
+                    return fail(s);
+        }
         return true;
     }
-    if (s->state == V34_SESSION_PHASE4) {
+    if ((s->state == V34_SESSION_PHASE3 && s->phase4_rx_ready) ||
+        s->state == V34_SESSION_PHASE4) {
         for (sample = 0; sample < V34_PCMA_PACKET_SAMPLES; ++sample)
             if (!v34_phase4_receiver_feed(&s->phase4_rx, pcma[sample]))
                 return fail(s);

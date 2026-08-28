@@ -98,6 +98,9 @@ source code, binaries or VM images from other modem projects.
 - a packet-oriented V.34 session controller now drives Phase 3, Phase 4, B1
   and continuous data through one generate/receive/read/write API; bytes
   written during training remain queued until the modem reports connected
+- transmit and receive training stages advance independently across buffered
+  media; a ten-packet latency test covers J-to-J-prime, E-to-B1 and B1-to-data
+  transitions without interpreting queued silence as the next stage
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full timing recovery, adaptive
