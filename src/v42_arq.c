@@ -3,14 +3,15 @@
 
 #define RX_MASK 8191u
 static unsigned distance(unsigned from,unsigned to){return(to-from)&127u;}
-void v42_arq_init(struct v42_arq*a,unsigned cr){memset(a,0,sizeof*a);a->cr=cr&1;a->t401_ms=1000;a->max_retries=3;}
+void v42_arq_init(struct v42_arq*a,unsigned cr){memset(a,0,sizeof*a);a->cr=cr&1;a->tx_window=V42_ARQ_WINDOW;a->max_info=V42_ARQ_CHUNK;a->t401_ms=1000;a->max_retries=3;}
+void v42_arq_configure(struct v42_arq*a,unsigned window,unsigned max_info){if(window&&window<128)a->tx_window=window;if(max_info&&max_info<=V42_ARQ_CHUNK)a->max_info=max_info;}
 size_t v42_arq_unacked(const struct v42_arq*a){return distance(a->va,a->vs);}
 
 size_t v42_arq_write(struct v42_arq*a,const uint8_t*d,size_t n)
 {
     size_t used=0;
-    while(used<n&&v42_arq_unacked(a)<V42_ARQ_WINDOW){
-        size_t z=n-used;if(z>V42_ARQ_CHUNK)z=V42_ARQ_CHUNK;
+    while(used<n&&v42_arq_unacked(a)<a->tx_window){
+        size_t z=n-used;if(z>a->max_info)z=a->max_info;
         struct v42_arq_slot*s=&a->tx[a->vs];memcpy(s->data,d+used,z);s->count=z;s->valid=1;
         a->vs=(a->vs+1)&127u;used+=z;
     }
