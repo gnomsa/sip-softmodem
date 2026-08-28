@@ -59,3 +59,24 @@ bool v34_trn4_phase(v34_scrambler *scrambler, uint8_t *phase_pi_6)
     *phase_pi_6 = (uint8_t)((12u - 3u * index) % 12u);
     return true;
 }
+
+bool v34_j4_phase(v34_scrambler *scrambler, unsigned *bit_index,
+                  unsigned *previous_rotation, uint8_t *phase_pi_6)
+{
+    static const uint8_t pattern[16] = {
+        0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1
+    };
+    unsigned i1, i2, input, rotation;
+    if (scrambler == NULL || bit_index == NULL || previous_rotation == NULL ||
+        phase_pi_6 == NULL)
+        return false;
+    i1 = v34_scramble_bit(scrambler, pattern[*bit_index % 16u]);
+    (*bit_index)++;
+    i2 = v34_scramble_bit(scrambler, pattern[*bit_index % 16u]);
+    (*bit_index)++;
+    input = 2u * i2 + i1;
+    rotation = (input + *previous_rotation) & 3u;
+    *previous_rotation = rotation;
+    *phase_pi_6 = (uint8_t)((12u - 3u * rotation) % 12u);
+    return true;
+}

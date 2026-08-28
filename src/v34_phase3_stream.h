@@ -20,6 +20,8 @@ typedef struct {
     unsigned sample_rate;
     uint32_t event_samples;
     uint32_t event_symbol;
+    unsigned j_bit_index;
+    unsigned j_rotation;
     size_t active_samples;
 } v34_phase3_stream;
 
@@ -30,5 +32,6 @@ bool v34_phase3_stream_init(v34_phase3_stream *stream, v34_phase3_role role,
 size_t v34_phase3_stream_generate(v34_phase3_stream *stream, uint8_t *pcma,
                                   size_t count);
 bool v34_phase3_stream_complete(const v34_phase3_stream *stream);
+bool v34_phase3_stream_finish_j(v34_phase3_stream *stream);
 
 #endif

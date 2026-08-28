@@ -22,6 +22,10 @@ static bool set_symbol_phase(v34_phase3_stream *s,
     case V34_P3_TRN:
         if (!v34_trn4_phase(&s->scrambler, &phase)) return false;
         break;
+    case V34_P3_J:
+        if (!v34_j4_phase(&s->scrambler, &s->j_bit_index,
+                          &s->j_rotation, &phase)) return false;
+        break;
     default:
         return false;
     }
@@ -36,7 +40,11 @@ static void enter_event(v34_phase3_stream *s)
     s->event_symbol = 0;
     if (event != NULL && event->signal == V34_P3_TRN)
         v34_scrambler_init(&s->scrambler, s->role == V34_PHASE3_CALL);
-    if (event != NULL && event->symbols != 0)
+    if (event != NULL && event->signal == V34_P3_J) {
+        s->j_bit_index = 0;
+        s->j_rotation = ((12u - s->tx.symbol_phase) % 12u) / 3u;
+        (void)set_symbol_phase(s, event);
+    } else if (event != NULL && event->symbols != 0)
         (void)set_symbol_phase(s, event);
 }
 
@@ -68,11 +76,6 @@ size_t v34_phase3_stream_generate(v34_phase3_stream *s, uint8_t *pcma,
         return 0;
     for (i = 0; i < count; ++i) {
         const v34_phase3_event *event = v34_phase3_current(&s->cursor);
-        while (event != NULL && event->signal == V34_P3_J) {
-            (void)v34_phase3_advance(&s->cursor, 0);
-            enter_event(s);
-            event = v34_phase3_current(&s->cursor);
-        }
         if (event == NULL) {
             pcma[i] = pcma_encode(0);
             continue;
@@ -90,7 +93,8 @@ size_t v34_phase3_stream_generate(v34_phase3_stream *s, uint8_t *pcma,
         pcma[i] = v34_training_tx_pcma(&s->tx);
         s->active_samples++;
         if (v34_symbol_clock_tick(&s->clock)) {
-            (void)v34_phase3_advance(&s->cursor, 1);
+            if (event->signal != V34_P3_J)
+                (void)v34_phase3_advance(&s->cursor, 1);
             s->event_symbol++;
             if (v34_phase3_current(&s->cursor) != event)
                 enter_event(s);
@@ -104,4 +108,18 @@ size_t v34_phase3_stream_generate(v34_phase3_stream *s, uint8_t *pcma,
 bool v34_phase3_stream_complete(const v34_phase3_stream *s)
 {
     return s != NULL && s->cursor.complete;
+}
+
+bool v34_phase3_stream_finish_j(v34_phase3_stream *s)
+{
+    const v34_phase3_event *event;
+    if (s == NULL)
+        return false;
+    event = v34_phase3_current(&s->cursor);
+    if (event == NULL || event->signal != V34_P3_J)
+        return false;
+    if (!v34_phase3_advance(&s->cursor, 0))
+        return false;
+    enter_event(s);
+    return true;
 }

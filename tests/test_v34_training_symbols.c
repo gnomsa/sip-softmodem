@@ -42,6 +42,14 @@ int main(void)
         }
         assert(v34_trn4_phase(&call, &phase));
         assert(phase == 0);
+        {
+            unsigned bit_index = 0;
+            unsigned rotation = 0;
+            for (i = 0; i < 8; ++i)
+                assert(v34_j4_phase(&call, &bit_index, &rotation, &phase));
+            assert(bit_index == 16);
+            assert(phase < 12 && phase % 3 == 0);
+        }
     }
     puts("v34 S/Sbar and PP symbol tests: ok");
     return 0;
