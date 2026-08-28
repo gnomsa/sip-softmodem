@@ -2,6 +2,7 @@
 #define SIP_SOFTMODEM_V32_SESSION_H
 
 #include "v32_data.h"
+#include "v32_e.h"
 #include "v32_line.h"
 #include "v32_qam.h"
 #include "v32_rate.h"
@@ -19,12 +20,15 @@ struct v32_session {
     struct v32_training training;
     struct v32_rate_tx rate_tx;
     struct v32_rate_rx rate_rx;
+    struct v32_rate_tx e_tx;
+    struct v32_e_rx e_rx;
     struct v32_startup startup;
     struct v32_data data;
     enum v32_carrier_state last_tx, last_rx;
     uint64_t tx_samples, rx_samples;
-    unsigned tx_symbols, rx_symbols;
-    int rate_tx_ready, rate_rx_ready, data_ready;
+    unsigned tx_symbols, rx_symbols, tx_marking, rx_marking;
+    int rate_tx_ready, rate_rx_ready, e_tx_ready, e_rx_ready;
+    int remote_e, data_ready;
 };
 
 void v32_session_init(struct v32_session *s, enum v32_std_role role,

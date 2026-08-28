@@ -39,9 +39,9 @@ source code, binaries or VM images from other modem projects.
 - V.32 section 5.4 start-up controller covering caller/answer line states,
   64-symbol reversals, 16-symbol silence, two-identical-rate-word validation,
   automatic 9600/4800 intersection, E and 128-symbol final marking
-- composite V.32 media session connected to SIP/RTP after V.8; the local
-  two-process integration test reaches `CONNECT 9600` and transfers an exact
-  payload through both PTYs
+- composite V.32 media session connected to SIP/RTP after V.8, with decoded E
+  confirmation and 128 marking symbols before CONNECT; local two-process tests
+  reach `CONNECT 4800` and `CONNECT 9600` and transfer exact PTY payloads
 
 This is an early laboratory modem. The initial demodulator assumes a clean,
 low-jitter signal and does not yet implement full carrier/timing recovery,
@@ -49,8 +49,8 @@ adaptive equalisation, all SIP transaction timers, RTCP, TCP SIP or V.34.
 The 4800/9600 implementation remains a clean-room laboratory waveform between
 two instances of this program. Its start-up is connected end to end, but it is
 not yet proven interoperable with an ITU-T V.32 hardware modem: carrier/timing
-recovery, echo cancellation, adaptive equalisation, retraining and the complete
-E transition remain to be implemented and tested on physical telephone paths.
+recovery, echo cancellation, adaptive equalisation and retraining remain to be
+implemented and tested on physical telephone paths.
 
 ## Build and test
 
@@ -146,6 +146,7 @@ sockets.
 
 `make integration-v32-test` performs the same full-process test with V.8 and
 the composite V.32 path, checks `CONNECT 9600`, and verifies the PTY payload.
+`make integration-v32-4800-test` exercises the corresponding 4800-bit/s path.
 
 ## Install as a service
 

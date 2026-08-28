@@ -10,4 +10,5 @@ unsigned v32_std_diff_encode(unsigned input_dibit,unsigned previous_output);
 uint16_t v32_std_rate_word(int rate4800,int rate9600,int trellis);
 uint16_t v32_std_e_word(int rate,int trellis);
 int v32_std_rate_decode(uint16_t word,int*rate4800,int*rate9600,int*trellis);
+int v32_std_e_decode(uint16_t word,int*rate,int*trellis);
 #endif
