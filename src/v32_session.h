@@ -14,7 +14,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define V32_STARTUP_SCANNERS 27
+/* A rectangular 1800-Hz/2400-symbol/s acquisition repeats only after a
+ * relatively long joint carrier/symbol phase cycle.  Cover enough sample
+ * offsets to include every word alignment seen with 20-ms RTP starts. */
+#define V32_STARTUP_SCANNERS 96
 
 struct v32_startup_scanner {
     struct v32_line line;

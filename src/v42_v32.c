@@ -4,18 +4,19 @@
 #define PENDING_MASK 8191u
 void v42_v32_init(struct v42_v32*m,enum v32_std_role role,int a4,int a9)
 {
-    memset(m,0,sizeof *m);v32_session_init(&m->physical,role,a4,a9);
+    memset(m,0,sizeof *m);m->use_lapm=1;v32_session_init(&m->physical,role,a4,a9);
     v42_session_init(&m->lapm,role==V32_STD_CALL,0);v42_stream_init(&m->stream);
 }
 void v42_v32_init_rate(struct v42_v32*m,enum v32_std_role role,int max_rate)
 {
-    memset(m,0,sizeof *m);if(max_rate>=7200)v32bis_session_init(&m->physical,role,max_rate);else v32_session_init(&m->physical,role,1,0);
+    memset(m,0,sizeof *m);m->use_lapm=1;if(max_rate>=7200)v32bis_session_init(&m->physical,role,max_rate);else v32_session_init(&m->physical,role,1,0);
     v42_session_init(&m->lapm,role==V32_STD_CALL,0);v42_stream_init(&m->stream);
 }
 void v42_v32_start_standard(struct v42_v32 *m)
 {
     v32_session_start_standard(&m->physical);
 }
+void v42_v32_set_lapm(struct v42_v32 *m,int enabled){m->use_lapm=enabled!=0;}
 static void pump_user(struct v42_v32*m)
 {
     while(m->pending_head!=m->pending_tail&&m->lapm.state==V42_SESSION_CONNECTED){
@@ -31,13 +32,15 @@ static void pump_frames(struct v42_v32*m)
 }
 void v42_v32_generate(struct v42_v32*m,int16_t*pcm,size_t count)
 {
+    if(!m->use_lapm){v32_session_generate(&m->physical,pcm,count);return;}
     if(v32_session_connected(&m->physical)){v42_session_advance(&m->lapm,(unsigned)(count/8));pump_user(m);pump_frames(m);
         uint8_t wire[32];size_t z=(size_t)v32_session_rate(&m->physical)/500;if(z<8)z=8;if(z>sizeof wire)z=sizeof wire;v42_stream_tx_bytes(&m->stream,wire,z);(void)v32_session_write(&m->physical,wire,z);}
     v32_session_generate(&m->physical,pcm,count);
 }
 void v42_v32_receive(struct v42_v32*m,const int16_t*pcm,size_t count)
 {
-    v32_session_receive(&m->physical,pcm,count);uint8_t wire[256],frame[V42_HDLC_MAX_BITS];size_t n;
+    v32_session_receive(&m->physical,pcm,count);if(!m->use_lapm)return;
+    uint8_t wire[256],frame[V42_HDLC_MAX_BITS];size_t n;
     while((n=v32_session_read(&m->physical,wire,sizeof wire))!=0)v42_stream_rx_bytes(&m->stream,wire,n);
     while((n=v42_stream_receive(&m->stream,frame,sizeof frame))!=0)(void)v42_session_receive(&m->lapm,frame,n);
     pump_user(m);pump_frames(m);
@@ -45,8 +48,9 @@ void v42_v32_receive(struct v42_v32*m,const int16_t*pcm,size_t count)
 void v42_v32_media_gap(struct v42_v32*m){v32_session_media_gap(&m->physical);}
 size_t v42_v32_write(struct v42_v32*m,const uint8_t*d,size_t n)
 {
+    if(!m->use_lapm)return v32_session_write(&m->physical,d,n);
     size_t z=0;while(z<n){size_t next=(m->pending_tail+1)&PENDING_MASK;if(next==m->pending_head)break;m->pending[m->pending_tail]=d[z++];m->pending_tail=next;}pump_user(m);return z;
 }
-size_t v42_v32_read(struct v42_v32*m,uint8_t*d,size_t n){return v42_session_read(&m->lapm,d,n);}
-int v42_v32_connected(const struct v42_v32*m){return m->lapm.state==V42_SESSION_CONNECTED;}
+size_t v42_v32_read(struct v42_v32*m,uint8_t*d,size_t n){return m->use_lapm?v42_session_read(&m->lapm,d,n):v32_session_read(&m->physical,d,n);}
+int v42_v32_connected(const struct v42_v32*m){return m->use_lapm?m->lapm.state==V42_SESSION_CONNECTED:v32_session_connected(&m->physical);}
 int v42_v32_rate(const struct v42_v32*m){return v32_session_rate(&m->physical);}

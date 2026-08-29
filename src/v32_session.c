@@ -336,10 +336,32 @@ static void queue_standard_training(struct v32_session *s,size_t count)
 static void begin_data(struct v32_session *s)
 {
     if (s->data_ready || !s->startup.selected_rate || !s->remote_e) return;
-    /* E is the common differential reference at the data boundary.  The
-     * composite session currently represents that boundary as state A. */
     if(s->startup.bis_selected){(void)v32bis_data_init(&s->bis_data,s->role,s->startup.selected_rate);(void)v32bis_qam_init(&s->bis_qam,s->startup.selected_rate);}
-    else{v32_data_init(&s->data, s->role, V32_STATE_A, V32_STATE_A);v32_qam_init(&s->qam);}
+    else{
+        enum v32_carrier_state previous_rx=V32_STATE_A;
+        if(s->standard_startup&&s->startup_scanner_selected>=0)
+            previous_rx=s->startup_scanner[s->startup_scanner_selected].last;
+        v32_data_init(&s->data,s->role,
+                      s->standard_startup?s->last_tx:V32_STATE_A,
+                      previous_rx);
+        v32_qam_init(&s->qam);
+        if(s->standard_startup){
+            /* The scrambler, differential encoder, carrier phase and symbol
+             * clock are continuous across the single E word into B1. */
+            s->data.tx_scr=s->e_tx.scr;
+            s->data.rx_descr=s->e_rx.descr;
+            s->qam.tx_samples=s->line.tx_samples;
+            if(s->startup_scanner_selected>=0){
+                const struct v32_line *rx=
+                    &s->startup_scanner[s->startup_scanner_selected].line;
+                s->qam.rx_samples=rx->rx_samples;
+                s->qam.rx_clock=rx->rx_clock;
+                s->qam.rx_i=rx->rx_i;s->qam.rx_q=rx->rx_q;
+                s->qam.rx_cc=rx->rx_cc;s->qam.rx_ss=rx->rx_ss;
+                s->qam.rx_cs=rx->rx_cs;
+            }
+        }
+    }
     s->data_ready = 1;
 }
 
