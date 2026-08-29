@@ -11,6 +11,19 @@ static enum v32_std_role other(enum v32_std_role r)
     return r == V32_STD_CALL ? V32_STD_ANSWER : V32_STD_CALL;
 }
 
+static unsigned rate_mask(int rate)
+{
+    return rate==4800?V32_RATE_4800:rate==7200?V32_RATE_7200:
+           rate==9600?V32_RATE_9600:rate==12000?V32_RATE_12000:
+           rate==14400?V32_RATE_14400:0;
+}
+
+static unsigned carrier_pair(enum v32_carrier_state state)
+{
+    static const unsigned pairs[4]={0,1,3,2};
+    return pairs[state&3];
+}
+
 static void begin_data(struct v32_session *s);
 
 static void startup_scanners_init(struct v32_session *s)
@@ -133,9 +146,12 @@ static int startup_accept_r1(struct v32_session *s,uint16_t word)
     unsigned common=remote_rates&s->startup.allowed_rates;
     int selected=v32_highest_rate(common);if(!selected)return 0;
     s->startup.remote_rate_word=word;s->startup.selected_rate=selected;
-    s->startup.bis_selected=0;
-    s->startup.local_rate_word=v32_std_rate_word(
-        !!(common&V32_RATE_4800),!!(common&V32_RATE_9600),0);
+    s->startup.bis_selected=bis&&trellis&&
+        !!(common&(V32_RATE_7200|V32_RATE_12000|V32_RATE_14400));
+    s->startup.local_rate_word=s->startup.bis_selected?
+        v32bis_rate_word(common,1):
+        v32_std_rate_word(!!(common&V32_RATE_4800),
+                          !!(common&V32_RATE_9600),0);
     s->startup.phase=V32_START_TRAIN_2;
     s->startup_echo_symbols=s->startup_timer_symbols;
     s->startup_training_symbols=0;s->tx_symbols=0;
@@ -151,9 +167,12 @@ static int startup_accept_r3(struct v32_session *s,unsigned scanner_index,
 {
     unsigned remote_rates=0;int trellis=0,bis=0;
     if(v32bis_rate_decode(word,&remote_rates,&trellis,&bis)<0)return 0;
-    unsigned selected=s->startup.selected_rate==9600?V32_RATE_9600:
-                      s->startup.selected_rate==4800?V32_RATE_4800:0;
-    if(remote_rates!=selected||trellis||bis)return 0;
+    int selected=v32_highest_rate(remote_rates);
+    if(!selected||remote_rates!=rate_mask(selected)||
+       !(remote_rates&s->startup.allowed_rates))return 0;
+    if(s->startup.bis_selected){if(!bis||!trellis||selected<7200)return 0;}
+    else if(bis||trellis||selected>9600)return 0;
+    s->startup.selected_rate=selected;
     s->startup.remote_rate_word=word;
     s->remote_r3=1;
     s->startup_scanner_selected=(int)scanner_index;
@@ -204,7 +223,8 @@ static void startup_r3_receive(struct v32_session *s,const int16_t *pcm,
                 int rate,trellis;
                 if(s->e_rx_ready&&
                    v32_e_rx_put(&s->e_rx,states[i],&rate,&trellis)&&
-                   rate==s->startup.selected_rate&&!trellis){
+                   rate==s->startup.selected_rate&&
+                   trellis==!!s->startup.bis_selected){
                     s->remote_e=1;
                     v32_startup_remote_e(&s->startup);
                     begin_data(s);
@@ -235,7 +255,8 @@ static void startup_r3_receive(struct v32_session *s,const int16_t *pcm,
                         scanner->last=states[j];
                         int rate,trellis;
                         if(v32_e_rx_put(&s->e_rx,states[j],&rate,&trellis)&&
-                           rate==s->startup.selected_rate&&!trellis){
+                           rate==s->startup.selected_rate&&
+                           trellis==!!s->startup.bis_selected){
                             s->remote_e=1;
                             v32_startup_remote_e(&s->startup);
                             begin_data(s);
@@ -313,10 +334,30 @@ static void queue_standard_training(struct v32_session *s,size_t count)
                                      s->startup.local_rate_word,s->last_tx);
                     s->rate_tx_ready=1;
                 }
+                if(s->startup.bis_selected&&!s->remote_r3&&
+                   s->startup_rate_symbols>=7200&&
+                   (s->startup_rate_symbols&7u)==0){
+                    unsigned rates=0;int trellis=0,bis=0;
+                    if(v32bis_rate_decode(s->startup.local_rate_word,&rates,
+                                          &trellis,&bis)==0){
+                        unsigned highest=rate_mask(v32_highest_rate(rates));
+                        unsigned lower=rates&~highest;
+                        if(lower){
+                            s->startup.selected_rate=v32_highest_rate(lower);
+                            s->startup.local_rate_word=
+                                v32bis_rate_word(lower,1);
+                            v32_rate_tx_init(&s->rate_tx,s->role,
+                                s->startup.local_rate_word,s->last_tx);
+                            s->startup_rate_symbols=0;
+                        }
+                    }
+                }
                 if(s->remote_r3&&s->startup_rate_symbols>=32){
                     s->startup.phase=V32_START_E;
                     if(!s->e_tx_ready){
                         v32_rate_tx_init(&s->e_tx,s->role,
+                            s->startup.bis_selected?
+                            v32bis_e_word(s->startup.selected_rate,1):
                             v32_std_e_word(s->startup.selected_rate,0),
                             s->last_tx);
                         s->e_tx_ready=1;
@@ -336,7 +377,27 @@ static void queue_standard_training(struct v32_session *s,size_t count)
 static void begin_data(struct v32_session *s)
 {
     if (s->data_ready || !s->startup.selected_rate || !s->remote_e) return;
-    if(s->startup.bis_selected){(void)v32bis_data_init(&s->bis_data,s->role,s->startup.selected_rate);(void)v32bis_qam_init(&s->bis_qam,s->startup.selected_rate);}
+    if(s->startup.bis_selected){
+        (void)v32bis_data_init(&s->bis_data,s->role,s->startup.selected_rate);
+        (void)v32bis_qam_init(&s->bis_qam,s->startup.selected_rate);
+        if(s->standard_startup){
+            s->bis_data.tx_scr=s->e_tx.scr;
+            s->bis_data.rx_descr=s->e_rx.descr;
+            s->bis_data.tx_previous=carrier_pair(s->last_tx);
+            if(s->startup_scanner_selected>=0){
+                const struct v32_startup_scanner *scanner=
+                    &s->startup_scanner[s->startup_scanner_selected];
+                const struct v32_line *rx=&scanner->line;
+                s->bis_data.rx_previous=carrier_pair(scanner->last);
+                s->bis_qam.rx_samples=rx->rx_samples;
+                s->bis_qam.rx_clock=rx->rx_clock;
+                s->bis_qam.rx_i=rx->rx_i;s->bis_qam.rx_q=rx->rx_q;
+                s->bis_qam.rx_cc=rx->rx_cc;s->bis_qam.rx_ss=rx->rx_ss;
+                s->bis_qam.rx_cs=rx->rx_cs;
+            }
+            s->bis_qam.tx_samples=s->line.tx_samples;
+        }
+    }
     else{
         enum v32_carrier_state previous_rx=V32_STATE_A;
         if(s->standard_startup&&s->startup_scanner_selected>=0)
