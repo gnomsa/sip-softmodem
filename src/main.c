@@ -154,7 +154,7 @@ static void *channel_main(void *opaque) {
     if(rtp_fd<0||pty_fd<0){fprintf(stderr,"channel %u startup: %s\n",args->index,strerror(errno));stopping=1;return NULL;} fcntl(pty_fd,F_SETFL,fcntl(pty_fd,F_GETFL)|O_NONBLOCK);
     fprintf(stderr,"channel %u: SIP %s:%u, RTP %s:%u, %d bit/s, PTY %s -> %s\n",args->index,c.bind_ip,c.sip_port,c.bind_ip,c.rtp_port,c.speed,c.tty_path,slave);
 
-    struct sockaddr_in peer_rtp={0},peer_sip={0},out_peer={0}; socklen_t peer_sip_len=sizeof peer_sip; int call=0,acked=0,pending=0,answer_requested=0,connect_reported=0,dialing=0,dial_requested=0,answer_side=0,ans_observed=0,ans_complete=0,v8_done=0,modem_started=0,v8_last_state=-1;
+    struct sockaddr_in peer_rtp={0},peer_sip={0},out_peer={0}; socklen_t peer_sip_len=sizeof peer_sip; int call=0,acked=0,pending=0,answer_requested=0,connect_reported=0,dialing=0,dial_requested=0,invite_retransmit=0,answer_side=0,ans_observed=0,ans_complete=0,v8_done=0,modem_started=0,v8_last_state=-1,v8_cj_pending=0,v8_cj_active=0;
     struct sip_request pending_req;char remote_ip[64]="";uint16_t remote_port=0;
     char dialog_id[256]="", tag[32],last_ok[4096]="",last_ring[2048]=""; int last_ok_len=0,last_ring_len=0; snprintf(tag,sizeof tag,"%08x",(unsigned)rand());
     char out_uri[256]="",out_invite[4096]="",out_via[256]="",out_from[256]="",out_contact[256]="";int out_len=0;
@@ -162,12 +162,12 @@ static void *channel_main(void *opaque) {
     struct tone_detector ans_detector;tone_detector_init(&ans_detector,2100.0,160);
     struct ansam_generator ansam_tx;struct ansam_detector ansam_rx;struct v8_fsk v8tx,v8rx;struct v8_session v8s;struct v8_menu v8local={.modes=V8_MODE_V21|V8_MODE_V22|(standard_v32?V8_MODE_V32:0)|(standard_v34?V8_MODE_V34:0)};uint8_t v8_menu_bits[128],v8_rx_bits[4096];size_t v8_rx_count=0;uint64_t v8_state_started=0;
     struct at_modem at;at_init(&at);at.s0=1;at.max_speed=c.speed;
-    struct jitter jitter; jitter_reset(&jitter); uint64_t next_tx=now_ms(),call_started=0,last_rtp=0,next_ring=0,dial_started=0,next_invite=0,pty_probe=0; uint64_t media_samples=0;int v34_log_state=-1,v34_log_phase2=-1,v34_log_tx=-1,v34_log_rx=-1,v34_log_range=-1;
+    struct jitter jitter; jitter_reset(&jitter); uint64_t next_tx=now_ms(),call_started=0,last_rtp=0,next_ring=0,dial_started=0,next_invite=0,pty_probe=0; uint64_t media_samples=0;int v34_log_state=-1,v34_log_phase2=-1,v34_log_tx=-1,v34_log_rx=-1,v34_log_range=-1,v32_log_phase=-1;
     while(!stopping) {
         uint64_t before_poll=now_ms();
         int pty_enabled=before_poll>=pty_probe;
         struct pollfd fds[]={{sip_rx_fd,POLLIN,0},{rtp_fd,POLLIN,0},{pty_enabled?pty_fd:-1,POLLIN,0}};
-        int timeout=call?(int)(next_tx>before_poll?next_tx-before_poll:0):pending?(int)(next_ring>before_poll?next_ring-before_poll:0):dialing?(int)(next_invite>before_poll?next_invite-before_poll:0):-1;
+        int timeout=call?(int)(next_tx>before_poll?next_tx-before_poll:0):pending?(int)(next_ring>before_poll?next_ring-before_poll:0):(dialing&&invite_retransmit)?(int)(next_invite>before_poll?next_invite-before_poll:0):-1;
         if(!pty_enabled){int probe_timeout=(int)(pty_probe-before_poll);if(timeout<0||probe_timeout<timeout)timeout=probe_timeout;}
         int ready=poll(fds,ARRAY_SIZE(fds),timeout); if(ready<0){if(errno==EINTR)continue;perror("poll");break;}
         if((fds[2].revents&POLLHUP)&&!(fds[2].revents&POLLIN))pty_probe=now_ms()+250;
@@ -178,6 +178,8 @@ static void *channel_main(void *opaque) {
             if(!strncmp(input,"SIP/2.0 ",8)) {
                 struct sip_response sr;
                 if(!dialing || sip_parse_response(input,&sr)<0 || strcmp(sr.call_id,dialog_id)) continue;
+                invite_retransmit=sip_invite_should_retransmit(sr.status);
+                if(sr.status>=100&&sr.status<200)continue;
                 if(sr.status==486 || sr.status==600) { char b[64]; size_t z=at_busy(&at,b,sizeof b); (void)write(pty_fd,b,z); dialing=0;route_release(args->index,dialog_id);dialog_id[0]='\0';continue; }
                 if(sr.status>=400) { char b[64]; size_t z=at_no_carrier(&at,b,sizeof b); (void)write(pty_fd,b,z); dialing=0;route_release(args->index,dialog_id);dialog_id[0]='\0';continue; }
                 if(sr.status>=200 && sr.status<300) {
@@ -185,7 +187,7 @@ static void *channel_main(void *opaque) {
                     if(sip_pcma_endpoint(sr.body,rip,sizeof rip,&rport)<0) continue;
                     peer_rtp.sin_family=AF_INET; peer_rtp.sin_port=htons(rport); if(inet_pton(AF_INET,rip,&peer_rtp.sin_addr)!=1) continue;
                     char ack[2048]; int z=sip_make_uac_request(ack,sizeof ack,"ACK",out_uri,out_via,out_from,sr.to,dialog_id,1,out_contact,c.user_agent,"");
-                    send_sip(sip_fd,&out_peer,ack,z); dialing=0; call=acked=1; answer_side=0;ans_observed=ans_complete=0;tone_detector_init(&ans_detector,2100.0,160);ansam_generator_init(&ansam_tx);ansam_detector_init(&ansam_rx);v8_fsk_init(&v8tx,0);v8_fsk_init(&v8rx,1);v8_session_init(&v8s,V8_CALL_DCE,&v8local);v8_rx_count=0;v8_last_state=-1;v8_done=!c.v8;modem_started=!c.v8;connect_reported=0; media_samples=0; call_started=now_ms(); next_tx=call_started; last_rtp=0; jitter_reset(&jitter); v21_init(&modem); v22_init(&modem22); v22bis_init(&modem22bis); v32_init(&modem32,c.speed>=9600?9600:4800);if(standard_v32bis)v42_v32_init_rate(&modem32std,V32_STD_CALL,c.speed);else v42_v32_init(&modem32std,V32_STD_CALL,1,c.speed>=9600);if(standard_v34){v34_modem_session_config mc=v34_live_config(0,c.speed);if(!v34_modem_session_init(&modem34,&mc)){fprintf(stderr,"V.34 call initialization failed\n");call=acked=0;continue;}} v21_set_answer_role(&modem,0); v22_set_answer_role(&modem22,0); v22bis_set_answer_role(&modem22bis,0);if(c.speed==2400&&!c.v8&&!standard_v34)v22bis_start_handshake(&modem22bis,0);
+                    send_sip(sip_fd,&out_peer,ack,z); dialing=0; call=acked=1; answer_side=0;ans_observed=ans_complete=0;tone_detector_init(&ans_detector,2100.0,160);ansam_generator_init(&ansam_tx);ansam_detector_init(&ansam_rx);v8_fsk_init(&v8tx,0);v8_fsk_init(&v8rx,1);v8_session_init(&v8s,V8_CALL_DCE,&v8local);v8_rx_count=0;v8_last_state=-1;v8_cj_pending=v8_cj_active=0;v8_done=!c.v8;modem_started=!c.v8;connect_reported=0; media_samples=0; call_started=now_ms(); next_tx=call_started; last_rtp=0; jitter_reset(&jitter); v21_init(&modem); v22_init(&modem22); v22bis_init(&modem22bis); v32_init(&modem32,c.speed>=9600?9600:4800);if(standard_v32bis)v42_v32_init_rate(&modem32std,V32_STD_CALL,c.speed);else v42_v32_init(&modem32std,V32_STD_CALL,1,c.speed>=9600);if(standard_v32)v42_v32_start_standard(&modem32std);v32_log_phase=-1;if(standard_v34){v34_modem_session_config mc=v34_live_config(0,c.speed);if(!v34_modem_session_init(&modem34,&mc)){fprintf(stderr,"V.34 call initialization failed\n");call=acked=0;continue;}} v21_set_answer_role(&modem,0); v22_set_answer_role(&modem22,0); v22bis_set_answer_role(&modem22bis,0);if(c.speed==2400&&!c.v8&&!standard_v34)v22bis_start_handshake(&modem22bis,0);
                 }
                 continue;
             }
@@ -210,9 +212,9 @@ static void *channel_main(void *opaque) {
             uint8_t packet[2048];ssize_t n=recv(rtp_fd,packet,sizeof packet,0);struct rtp_packet rp;
             if(n>0&&rtp_parse(packet,(size_t)n,&rp)==0&&rp.payload_type==8&&rp.payload_len==160){jitter_put(&jitter,rp.sequence,rp.payload,rp.payload_len);last_rtp=now_ms();}
         }
-        if(fds[2].revents&POLLIN) {uint8_t bytes[512];ssize_t n=read(pty_fd,bytes,sizeof bytes);if(n>0){if(at.online&&call&&acked){if(standard_v34)v34_modem_session_write(&modem34,bytes,(size_t)n);else if(standard_v32)v42_v32_write(&modem32std,bytes,(size_t)n);else if(c.speed>=4800)v32_write(&modem32,bytes,(size_t)n);else if(c.speed==2400)v22bis_write(&modem22bis,bytes,(size_t)n);else if(c.speed==1200)v22_write(&modem22,bytes,(size_t)n);else v21_write(&modem,bytes,(size_t)n);}else{char atout[1024];memset(atout,0,sizeof atout);enum at_event ev=at_feed(&at,bytes,(size_t)n,atout,sizeof atout);size_t z=strnlen(atout,sizeof atout);if(z)(void)write(pty_fd,atout,z);if(ev==AT_EVENT_ANSWER&&pending)answer_requested=1;if(ev==AT_EVENT_DIAL){if(!c.outbound_host[0]){char status[64];size_t q=at_no_dialtone(&at,status,sizeof status);(void)write(pty_fd,status,q);}else dial_requested=1;}if(ev==AT_EVENT_HANGUP){pending=0;dialing=0;call=acked=0;}}}}
-        if(dial_requested&&!call&&!pending&&!dialing){dial_requested=0;out_peer.sin_family=AF_INET;out_peer.sin_port=htons(c.outbound_port);if(inet_pton(AF_INET,c.outbound_host,&out_peer.sin_addr)!=1){char b[64];size_t z=at_no_dialtone(&at,b,sizeof b);(void)write(pty_fd,b,z);}else{char body[1024];snprintf(dialog_id,sizeof dialog_id,"%08x@%s",(unsigned)rand(),c.public_ip);if(!route_claim(args->index,dialog_id)){char b[64];size_t z=at_no_dialtone(&at,b,sizeof b);(void)write(pty_fd,b,z);}else{snprintf(out_uri,sizeof out_uri,"sip:%s@%s:%u",at.dial_number,c.outbound_host,c.outbound_port);snprintf(out_via,sizeof out_via,"SIP/2.0/UDP %s:%u;branch=z9hG4bK%08x;rport",c.public_ip,c.sip_port,(unsigned)rand());snprintf(out_from,sizeof out_from,"<sip:%s@%s>;tag=%s",c.caller_id,c.public_ip,tag);snprintf(out_contact,sizeof out_contact,"sip:modem@%s:%u",c.public_ip,c.sip_port);sip_make_sdp(body,sizeof body,c.public_ip,c.rtp_port,c.sdp_origin,c.sdp_name);out_len=sip_make_uac_request(out_invite,sizeof out_invite,"INVITE",out_uri,out_via,out_from,out_uri,dialog_id,1,out_contact,c.user_agent,body);send_sip(sip_fd,&out_peer,out_invite,out_len);dialing=1;dial_started=now_ms();next_invite=dial_started+500;}}}
-        if(dialing&&now_ms()>=next_invite){send_sip(sip_fd,&out_peer,out_invite,out_len);next_invite=now_ms()+1000;}
+        if(fds[2].revents&POLLIN) {uint8_t bytes[512];ssize_t n=read(pty_fd,bytes,sizeof bytes);if(n>0){if(at.online&&call&&acked){if(standard_v34)v34_modem_session_write(&modem34,bytes,(size_t)n);else if(standard_v32)v42_v32_write(&modem32std,bytes,(size_t)n);else if(c.speed>=4800)v32_write(&modem32,bytes,(size_t)n);else if(c.speed==2400)v22bis_write(&modem22bis,bytes,(size_t)n);else if(c.speed==1200)v22_write(&modem22,bytes,(size_t)n);else v21_write(&modem,bytes,(size_t)n);}else{char atout[1024];memset(atout,0,sizeof atout);enum at_event ev=at_feed(&at,bytes,(size_t)n,atout,sizeof atout);size_t z=strnlen(atout,sizeof atout);if(z)(void)write(pty_fd,atout,z);if(ev==AT_EVENT_ANSWER&&pending)answer_requested=1;if(ev==AT_EVENT_DIAL){if(!c.outbound_host[0]){char status[64];size_t q=at_no_dialtone(&at,status,sizeof status);(void)write(pty_fd,status,q);}else dial_requested=1;}if(ev==AT_EVENT_HANGUP){pending=0;dialing=0;invite_retransmit=0;call=acked=0;}}}}
+        if(dial_requested&&!call&&!pending&&!dialing){dial_requested=0;out_peer.sin_family=AF_INET;out_peer.sin_port=htons(c.outbound_port);if(inet_pton(AF_INET,c.outbound_host,&out_peer.sin_addr)!=1){char b[64];size_t z=at_no_dialtone(&at,b,sizeof b);(void)write(pty_fd,b,z);}else{char body[1024];snprintf(dialog_id,sizeof dialog_id,"%08x@%s",(unsigned)rand(),c.public_ip);if(!route_claim(args->index,dialog_id)){char b[64];size_t z=at_no_dialtone(&at,b,sizeof b);(void)write(pty_fd,b,z);}else{snprintf(out_uri,sizeof out_uri,"sip:%s@%s:%u",at.dial_number,c.outbound_host,c.outbound_port);snprintf(out_via,sizeof out_via,"SIP/2.0/UDP %s:%u;branch=z9hG4bK%08x;rport",c.public_ip,c.sip_port,(unsigned)rand());snprintf(out_from,sizeof out_from,"<sip:%s@%s>;tag=%s",c.caller_id,c.public_ip,tag);snprintf(out_contact,sizeof out_contact,"sip:modem@%s:%u",c.public_ip,c.sip_port);sip_make_sdp(body,sizeof body,c.public_ip,c.rtp_port,c.sdp_origin,c.sdp_name);out_len=sip_make_uac_request(out_invite,sizeof out_invite,"INVITE",out_uri,out_via,out_from,out_uri,dialog_id,1,out_contact,c.user_agent,body);send_sip(sip_fd,&out_peer,out_invite,out_len);dialing=1;invite_retransmit=1;dial_started=now_ms();next_invite=dial_started+500;}}}
+        if(dialing&&invite_retransmit&&now_ms()>=next_invite){send_sip(sip_fd,&out_peer,out_invite,out_len);next_invite=now_ms()+1000;}
         if(pending&&now_ms()>=next_ring){char atout[1024]={0};enum at_event ev=at_ring_caller(&at,pending_req.from,atout,sizeof atout);(void)write(pty_fd,atout,strnlen(atout,sizeof atout));if(ev==AT_EVENT_ANSWER)answer_requested=1;next_ring+=6000;}
         if(pending&&answer_requested){
             char output[4096],sdp_body[1024],contact[256];
@@ -223,9 +225,9 @@ static void *channel_main(void *opaque) {
             pending=0;answer_requested=0;call=1;acked=0;answer_side=1;ans_observed=ans_complete=0;
             tone_detector_init(&ans_detector,2100.0,160);ansam_generator_init(&ansam_tx);ansam_detector_init(&ansam_rx);
             v8_fsk_init(&v8tx,1);v8_fsk_init(&v8rx,0);v8_session_init(&v8s,V8_ANSWER_DCE,&v8local);
-            v8_rx_count=0;v8_last_state=-1;v8_done=!c.v8;modem_started=!c.v8;connect_reported=0;media_samples=0;
+            v8_rx_count=0;v8_last_state=-1;v8_cj_pending=v8_cj_active=0;v8_done=!c.v8;modem_started=!c.v8;connect_reported=0;media_samples=0;
             call_started=now_ms();last_rtp=0;next_tx=call_started;jitter_reset(&jitter);
-            v21_init(&modem);v22_init(&modem22);v22bis_init(&modem22bis);v32_init(&modem32,c.speed>=9600?9600:4800);if(standard_v32bis)v42_v32_init_rate(&modem32std,V32_STD_ANSWER,c.speed);else v42_v32_init(&modem32std,V32_STD_ANSWER,1,c.speed>=9600);if(standard_v34){v34_modem_session_config mc=v34_live_config(1,c.speed);if(!v34_modem_session_init(&modem34,&mc)){fprintf(stderr,"V.34 answer initialization failed\n");call=acked=0;continue;}}
+            v21_init(&modem);v22_init(&modem22);v22bis_init(&modem22bis);v32_init(&modem32,c.speed>=9600?9600:4800);if(standard_v32bis)v42_v32_init_rate(&modem32std,V32_STD_ANSWER,c.speed);else v42_v32_init(&modem32std,V32_STD_ANSWER,1,c.speed>=9600);if(standard_v32)v42_v32_start_standard(&modem32std);v32_log_phase=-1;if(standard_v34){v34_modem_session_config mc=v34_live_config(1,c.speed);if(!v34_modem_session_init(&modem34,&mc)){fprintf(stderr,"V.34 answer initialization failed\n");call=acked=0;continue;}}
             if(c.speed==2400&&!c.v8&&!standard_v34)v22bis_start_handshake(&modem22bis,1);
             fprintf(stderr,"answering RTP %s:%u at %d bit/s%s\n",remote_ip,remote_port,c.speed,c.v8?" with V.8":"");
         }
@@ -272,10 +274,11 @@ static void *channel_main(void *opaque) {
                 v8_last_state=v8s.state;v8_state_started=now_ms();size_t bits=0;
                 if(v8s.state==V8_CM)bits=v8_encode_menu(&v8local,v8_menu_bits,sizeof v8_menu_bits);
                 else if(v8s.state==V8_JM)bits=v8_encode_menu(&v8s.joint,v8_menu_bits,sizeof v8_menu_bits);
-                else if(v8s.state==V8_CJ)bits=v8_encode_cj(v8_menu_bits,sizeof v8_menu_bits);
+                else if(v8s.state==V8_CJ)v8_cj_pending=1;
                 if(bits)v8_fsk_set_sequence(&v8tx,v8_menu_bits,bits);
             }
-            if(c.v8&&!v8_done&&!answer_side&&v8s.state==V8_CJ&&now_ms()-v8_state_started>=100)v8_session_cj(&v8s);
+            if(c.v8&&!v8_done&&!answer_side&&v8s.state==V8_CJ&&v8_cj_pending&&v8tx.tx_at%10==0){size_t bits=v8_encode_cj(v8_menu_bits,sizeof v8_menu_bits);v8_fsk_set_sequence(&v8tx,v8_menu_bits,bits);v8_cj_pending=0;v8_cj_active=1;v8_state_started=now_ms();}
+            if(c.v8&&!v8_done&&!answer_side&&v8s.state==V8_CJ&&v8_cj_active&&now_ms()-v8_state_started>=100){v8_cj_active=0;v8_session_cj(&v8s);}
             if(c.v8&&!v8_done&&(v8s.state==V8_SELECTED||v8s.state==V8_FAILED)){
                 v8_done=1;modem_started=1;ans_complete=1;
                 if(c.speed==2400&&!standard_v34){v22bis_start_handshake(&modem22bis,answer_side);if(answer_side)v22bis_answer_sequence_complete(&modem22bis);}
@@ -298,6 +301,7 @@ static void *channel_main(void *opaque) {
             sendto(rtp_fd,packet,length,0,(struct sockaddr*)&peer_rtp,sizeof peer_rtp);media_samples+=160;next_tx+=20;now=now_ms();
         }
         now=now_ms();if(call&&standard_v34&&modem_started&&(v34_log_state!=(int)modem34.state||v34_log_phase2!=(int)modem34.phase2.state||v34_log_tx!=(int)modem34.phase2.probing.tx_state||v34_log_rx!=(int)modem34.phase2.probing.rx_state||v34_log_range!=(int)modem34.phase2.ranging.state)){v34_log_state=modem34.state;v34_log_phase2=modem34.phase2.state;v34_log_tx=modem34.phase2.probing.tx_state;v34_log_rx=modem34.phase2.probing.rx_state;v34_log_range=modem34.phase2.ranging.state;fprintf(stderr,"V.34 state %d phase2 %d probe tx/rx %d/%d ranging %d peer-info %d reversals %u\n",v34_log_state,v34_log_phase2,v34_log_tx,v34_log_rx,v34_log_range,modem34.phase2.ranging.peer_info_ready,modem34.phase2.ranging.observed_reversals);}
+        if(call&&standard_v32&&modem_started&&v32_log_phase!=(int)modem32std.physical.startup.phase){v32_log_phase=modem32std.physical.startup.phase;fprintf(stderr,"V.32 startup %s tx/rx symbols %u/%u rate %d remote-E %d\n",v32_startup_phase_name(modem32std.physical.startup.phase),modem32std.physical.tx_symbols,modem32std.physical.rx_symbols,v32_session_rate(&modem32std.physical),modem32std.physical.remote_e);}
         if(call&&((!acked&&now-call_started>32000)||(last_rtp&&now-last_rtp>30000))){fprintf(stderr,"call timed out\n");call=acked=0;last_ok_len=0;}
         int negotiated=c.speed;if(standard_v34){v34_mode mode;if(v34_modem_session_mode(&modem34,&mode))negotiated=(int)(mode.tx_rate<mode.rx_rate?mode.tx_rate:mode.rx_rate);}else if(c.speed==2400)negotiated=v22bis_selected_rate(&modem22bis);else if(standard_v32)negotiated=v42_v32_rate(&modem32std);
         int trained=modem_started&&(standard_v34?v34_modem_session_connected(&modem34):(c.speed==2400?v22bis_connected(&modem22bis):standard_v32?v42_v32_connected(&modem32std):((answer_side||ans_complete)&&now-call_started>5200)));

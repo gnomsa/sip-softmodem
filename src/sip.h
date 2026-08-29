@@ -24,4 +24,7 @@ int sip_make_sdp(char *out, size_t capacity, const char *address, uint16_t port,
 int sip_make_uac_request(char *out,size_t capacity,const char *method,const char *uri,
                          const char *via,const char *from,const char *to,const char *call_id,
                          unsigned cseq,const char *contact,const char *user_agent,const char *body);
+/* RFC 3261 17.1.1.2: stop INVITE retransmissions on the first response,
+ * including a provisional 1xx response. */
+int sip_invite_should_retransmit(int response_status);
 #endif

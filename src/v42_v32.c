@@ -12,6 +12,10 @@ void v42_v32_init_rate(struct v42_v32*m,enum v32_std_role role,int max_rate)
     memset(m,0,sizeof *m);if(max_rate>=7200)v32bis_session_init(&m->physical,role,max_rate);else v32_session_init(&m->physical,role,1,0);
     v42_session_init(&m->lapm,role==V32_STD_CALL,0);v42_stream_init(&m->stream);
 }
+void v42_v32_start_standard(struct v42_v32 *m)
+{
+    v32_session_start_standard(&m->physical);
+}
 static void pump_user(struct v42_v32*m)
 {
     while(m->pending_head!=m->pending_tail&&m->lapm.state==V42_SESSION_CONNECTED){

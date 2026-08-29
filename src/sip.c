@@ -91,3 +91,8 @@ int sip_make_sdp(char *out,size_t cap,const char *address,uint16_t port,
 
 int sip_make_uac_request(char*out,size_t cap,const char*method,const char*uri,const char*via,
  const char*from,const char*to,const char*call_id,unsigned cseq,const char*contact,const char*ua,const char*body){if(!body)body="";int n=snprintf(out,cap,"%s %s SIP/2.0\r\nVia: %s\r\nMax-Forwards: 70\r\nFrom: %s\r\nTo: %s\r\nCall-ID: %s\r\nCSeq: %u %s\r\nContact: <%s>\r\nUser-Agent: %s\r\n%sContent-Length: %zu\r\n\r\n%s",method,uri,via,from,to,call_id,cseq,method,contact,ua,*body?"Content-Type: application/sdp\r\n":"",strlen(body),body);return n<0||(size_t)n>=cap?-1:n;}
+
+int sip_invite_should_retransmit(int response_status)
+{
+    return response_status==0;
+}

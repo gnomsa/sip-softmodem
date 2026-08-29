@@ -12,6 +12,7 @@ struct v42_v32 {
 };
 void v42_v32_init(struct v42_v32*m,enum v32_std_role role,int allow_4800,int allow_9600);
 void v42_v32_init_rate(struct v42_v32*m,enum v32_std_role role,int max_rate);
+void v42_v32_start_standard(struct v42_v32 *m);
 void v42_v32_generate(struct v42_v32*m,int16_t*pcm,size_t count);
 void v42_v32_receive(struct v42_v32*m,const int16_t*pcm,size_t count);
 void v42_v32_media_gap(struct v42_v32*m);

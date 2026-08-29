@@ -10,6 +10,7 @@ struct v32_e_rx {
 
 void v32_e_rx_init(struct v32_e_rx *r, enum v32_std_role remote_role,
                    enum v32_carrier_state previous);
+void v32_e_rx_continue(struct v32_e_rx *r, const struct v32_rate_rx *rate);
 int v32_e_rx_put(struct v32_e_rx *r, enum v32_carrier_state state,
                  int *rate, int *trellis);
 #endif

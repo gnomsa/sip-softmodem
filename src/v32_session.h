@@ -14,6 +14,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define V32_STARTUP_SCANNERS 27
+
+struct v32_startup_scanner {
+    struct v32_line line;
+    struct v32_rate_rx rate;
+    enum v32_carrier_state last;
+    unsigned skip, symbols;
+    int rate_ready;
+};
+
 /* Composite V.32 media session.  V.8 has already selected the V.32 family
  * before this object starts. */
 struct v32_session {
@@ -36,12 +46,23 @@ struct v32_session {
     uint8_t pending[8192];
     size_t pending_head, pending_tail;
     int rate_tx_ready, rate_rx_ready, e_tx_ready, e_rx_ready;
-    int remote_e, data_ready;
+    int remote_r3, remote_e, data_ready, standard_startup;
+    unsigned startup_transition_symbols, startup_timer_symbols;
+    unsigned startup_reversals, startup_tone_blocks, startup_tone_misses;
+    unsigned startup_echo_symbols, startup_training_symbols;
+    unsigned startup_rate_symbols;
+    double startup_tone_i, startup_tone_q;
+    int startup_tone_valid, startup_tone_bin, startup_scanner_selected;
+    struct v32_startup_scanner startup_scanner[V32_STARTUP_SCANNERS];
 };
 
 void v32_session_init(struct v32_session *s, enum v32_std_role role,
                       int allow_4800, int allow_9600);
 void v32bis_session_init(struct v32_session*s,enum v32_std_role role,int max_rate);
+/* Enter the V.32 GSTN start-up sequence after V.8/V.25 has selected V.32.
+ * The default initializer retains the deterministic training shortcut used by
+ * the local DSP regression tests. */
+void v32_session_start_standard(struct v32_session *s);
 void v32_session_generate(struct v32_session *s, int16_t *pcm, size_t count);
 void v32_session_receive(struct v32_session *s, const int16_t *pcm, size_t count);
 void v32_session_media_gap(struct v32_session *s);

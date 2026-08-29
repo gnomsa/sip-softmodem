@@ -14,6 +14,13 @@ void v32_e_rx_init(struct v32_e_rx *r, enum v32_std_role role,
     r->previous = state_pair(previous);
 }
 
+void v32_e_rx_continue(struct v32_e_rx *r, const struct v32_rate_rx *rate)
+{
+    *r=(struct v32_e_rx){0};
+    r->descr=rate->descr;
+    r->previous=rate->previous;
+}
+
 int v32_e_rx_put(struct v32_e_rx *r, enum v32_carrier_state state,
                  int *rate, int *trellis)
 {
@@ -32,7 +39,8 @@ int v32_e_rx_put(struct v32_e_rx *r, enum v32_carrier_state state,
     if (valid && r->word == r->last) r->repeats++;
     else r->repeats = valid ? 1 : 0;
     r->last = r->word; r->word = 0; r->bits = 0;
-    if (r->repeats < 2) return 0;
+    /* V.32 5.3.2 defines E as one, and only one, 16-bit sequence. */
+    if (!valid) return 0;
     if (rate) *rate = decoded_rate;
     if (trellis) *trellis = decoded_trellis;
     return 1;
