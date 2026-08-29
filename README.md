@@ -147,7 +147,9 @@ V.32bis start-up and `CONNECT 9600` have been observed against a physical CSD
 endpoint through SIP/PCMA. Error-free incoming PPP/LCP frames have also been
 decoded from a physical 9600-bit/s call. Timing acquisition and adaptive
 equalisation are present; carrier recovery, long-term clock tracking, echo
-cancellation and retraining still need validation on physical telephone paths.
+cancellation and successful retrain completion still need validation on
+physical telephone paths. A failed B1 acquisition is quality-gated and starts
+in-band retraining instead of exposing a false carrier to the PTY.
 
 ## Build and test
 
@@ -321,12 +323,14 @@ effective application throughput and answer-side interoperability with a
 physical modem therefore remain unconfirmed.
 
 Physical acquisition is not yet reliable on every attempt. Another gap-free
-call reached `CONNECT 9600` but had 111.94% B1 EVM and produced no valid data;
-none of the timing or differential candidates correlated with the known B1
-sequence. This remains an equaliser/carrier-training problem rather than a SIP
-or packet-loss problem. For meaningful measurements, avoid simultaneous
-disk/network-heavy jobs, reject runs containing RTP gaps, and record B1 EVM
-alongside data-layer FCS results.
+call had 111.94% B1 EVM and produced no valid data; none of the timing or
+differential candidates correlated with the known B1 sequence. B1 acquisition
+now requires no more than 60% EVM. A worse result is rejected before `CONNECT`
+or user data is reported, and the transmitter immediately sends the standard
+in-band retrain request. This remains an equaliser/carrier-training problem
+rather than a SIP or packet-loss problem. For meaningful measurements, avoid
+simultaneous disk/network-heavy jobs, reject runs containing RTP gaps, and
+record B1 EVM alongside data-layer FCS results.
 
 ## Install as a service
 

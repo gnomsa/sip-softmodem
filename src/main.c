@@ -162,7 +162,7 @@ static void *channel_main(void *opaque) {
     struct tone_detector ans_detector;tone_detector_init(&ans_detector,2100.0,160);
     struct ansam_generator ansam_tx;struct ansam_detector ansam_rx;struct v8_fsk v8tx,v8rx;struct v8_session v8s;struct v8_menu v8local={.modes=V8_MODE_V21|V8_MODE_V22|(standard_v32?V8_MODE_V32:0)|(standard_v34?V8_MODE_V34:0)};uint8_t v8_menu_bits[128],v8_rx_bits[4096];size_t v8_rx_count=0;uint64_t v8_state_started=0;
     struct at_modem at;at_init(&at);at.s0=1;at.max_speed=c.speed;
-    struct jitter jitter; jitter_reset(&jitter); uint64_t next_tx=now_ms(),call_started=0,last_rtp=0,next_ring=0,dial_started=0,next_invite=0,pty_probe=0; uint64_t media_samples=0;int v34_log_state=-1,v34_log_phase2=-1,v34_log_tx=-1,v34_log_rx=-1,v34_log_range=-1,v32_log_phase=-1,v32_log_connected=-1,v42_log_state=-1;
+    struct jitter jitter; jitter_reset(&jitter); uint64_t next_tx=now_ms(),call_started=0,last_rtp=0,next_ring=0,dial_started=0,next_invite=0,pty_probe=0; uint64_t media_samples=0;int v34_log_state=-1,v34_log_phase2=-1,v34_log_tx=-1,v34_log_rx=-1,v34_log_range=-1,v32_log_phase=-1,v32_log_connected=-1,v32_log_b1=-1,v42_log_state=-1;
     while(!stopping) {
         uint64_t before_poll=now_ms();
         int pty_enabled=before_poll>=pty_probe;
@@ -187,7 +187,7 @@ static void *channel_main(void *opaque) {
                     if(sip_pcma_endpoint(sr.body,rip,sizeof rip,&rport)<0) continue;
                     peer_rtp.sin_family=AF_INET; peer_rtp.sin_port=htons(rport); if(inet_pton(AF_INET,rip,&peer_rtp.sin_addr)!=1) continue;
                     char ack[2048]; int z=sip_make_uac_request(ack,sizeof ack,"ACK",out_uri,out_via,out_from,sr.to,dialog_id,1,out_contact,c.user_agent,"");
-                    send_sip(sip_fd,&out_peer,ack,z); dialing=0; call=acked=1; answer_side=0;ans_observed=ans_complete=0;tone_detector_init(&ans_detector,2100.0,160);ansam_generator_init(&ansam_tx);ansam_detector_init(&ansam_rx);v8_fsk_init(&v8tx,0);v8_fsk_init(&v8rx,1);v8_session_init(&v8s,V8_CALL_DCE,&v8local);v8_rx_count=0;v8_last_state=-1;v8_cj_pending=v8_cj_active=0;v8_done=!c.v8;modem_started=!c.v8;connect_reported=0; media_samples=0; call_started=now_ms(); next_tx=call_started; last_rtp=0; jitter_reset(&jitter); v21_init(&modem); v22_init(&modem22); v22bis_init(&modem22bis); v32_init(&modem32,c.speed>=9600?9600:4800);if(standard_v32bis)v42_v32_init_rate(&modem32std,V32_STD_CALL,c.speed);else v42_v32_init(&modem32std,V32_STD_CALL,1,c.speed>=9600);if(standard_v32)v42_v32_start_standard(&modem32std);v32_log_phase=-1;if(standard_v34){v34_modem_session_config mc=v34_live_config(0,c.speed);if(!v34_modem_session_init(&modem34,&mc)){fprintf(stderr,"V.34 call initialization failed\n");call=acked=0;continue;}} v21_set_answer_role(&modem,0); v22_set_answer_role(&modem22,0); v22bis_set_answer_role(&modem22bis,0);if(c.speed==2400&&!c.v8&&!standard_v34)v22bis_start_handshake(&modem22bis,0);
+                    send_sip(sip_fd,&out_peer,ack,z); dialing=0; call=acked=1; answer_side=0;ans_observed=ans_complete=0;tone_detector_init(&ans_detector,2100.0,160);ansam_generator_init(&ansam_tx);ansam_detector_init(&ansam_rx);v8_fsk_init(&v8tx,0);v8_fsk_init(&v8rx,1);v8_session_init(&v8s,V8_CALL_DCE,&v8local);v8_rx_count=0;v8_last_state=-1;v8_cj_pending=v8_cj_active=0;v8_done=!c.v8;modem_started=!c.v8;connect_reported=0; media_samples=0; call_started=now_ms(); next_tx=call_started; last_rtp=0; jitter_reset(&jitter); v21_init(&modem); v22_init(&modem22); v22bis_init(&modem22bis); v32_init(&modem32,c.speed>=9600?9600:4800);if(standard_v32bis)v42_v32_init_rate(&modem32std,V32_STD_CALL,c.speed);else v42_v32_init(&modem32std,V32_STD_CALL,1,c.speed>=9600);if(standard_v32)v42_v32_start_standard(&modem32std);v32_log_phase=v32_log_b1=-1;if(standard_v34){v34_modem_session_config mc=v34_live_config(0,c.speed);if(!v34_modem_session_init(&modem34,&mc)){fprintf(stderr,"V.34 call initialization failed\n");call=acked=0;continue;}} v21_set_answer_role(&modem,0); v22_set_answer_role(&modem22,0); v22bis_set_answer_role(&modem22bis,0);if(c.speed==2400&&!c.v8&&!standard_v34)v22bis_start_handshake(&modem22bis,0);
                 }
                 continue;
             }
@@ -227,7 +227,7 @@ static void *channel_main(void *opaque) {
             v8_fsk_init(&v8tx,1);v8_fsk_init(&v8rx,0);v8_session_init(&v8s,V8_ANSWER_DCE,&v8local);
             v8_rx_count=0;v8_last_state=-1;v8_cj_pending=v8_cj_active=0;v8_done=!c.v8;modem_started=!c.v8;connect_reported=0;media_samples=0;
             call_started=now_ms();last_rtp=0;next_tx=call_started;jitter_reset(&jitter);
-            v21_init(&modem);v22_init(&modem22);v22bis_init(&modem22bis);v32_init(&modem32,c.speed>=9600?9600:4800);if(standard_v32bis)v42_v32_init_rate(&modem32std,V32_STD_ANSWER,c.speed);else v42_v32_init(&modem32std,V32_STD_ANSWER,1,c.speed>=9600);if(standard_v32)v42_v32_start_standard(&modem32std);v32_log_phase=-1;if(standard_v34){v34_modem_session_config mc=v34_live_config(1,c.speed);if(!v34_modem_session_init(&modem34,&mc)){fprintf(stderr,"V.34 answer initialization failed\n");call=acked=0;continue;}}
+            v21_init(&modem);v22_init(&modem22);v22bis_init(&modem22bis);v32_init(&modem32,c.speed>=9600?9600:4800);if(standard_v32bis)v42_v32_init_rate(&modem32std,V32_STD_ANSWER,c.speed);else v42_v32_init(&modem32std,V32_STD_ANSWER,1,c.speed>=9600);if(standard_v32)v42_v32_start_standard(&modem32std);v32_log_phase=v32_log_b1=-1;if(standard_v34){v34_modem_session_config mc=v34_live_config(1,c.speed);if(!v34_modem_session_init(&modem34,&mc)){fprintf(stderr,"V.34 answer initialization failed\n");call=acked=0;continue;}}
             if(c.speed==2400&&!c.v8&&!standard_v34)v22bis_start_handshake(&modem22bis,1);
             fprintf(stderr,"answering RTP %s:%u at %d bit/s%s\n",remote_ip,remote_port,c.speed,c.v8?" with V.8":"");
         }
@@ -305,6 +305,26 @@ static void *channel_main(void *opaque) {
         now=now_ms();if(call&&standard_v34&&modem_started&&(v34_log_state!=(int)modem34.state||v34_log_phase2!=(int)modem34.phase2.state||v34_log_tx!=(int)modem34.phase2.probing.tx_state||v34_log_rx!=(int)modem34.phase2.probing.rx_state||v34_log_range!=(int)modem34.phase2.ranging.state)){v34_log_state=modem34.state;v34_log_phase2=modem34.phase2.state;v34_log_tx=modem34.phase2.probing.tx_state;v34_log_rx=modem34.phase2.probing.rx_state;v34_log_range=modem34.phase2.ranging.state;fprintf(stderr,"V.34 state %d phase2 %d probe tx/rx %d/%d ranging %d peer-info %d reversals %u\n",v34_log_state,v34_log_phase2,v34_log_tx,v34_log_rx,v34_log_range,modem34.phase2.ranging.peer_info_ready,modem34.phase2.ranging.observed_reversals);}
         if(call&&standard_v32&&modem_started&&v32_log_phase!=(int)modem32std.physical.startup.phase){v32_log_phase=modem32std.physical.startup.phase;fprintf(stderr,"V.32 startup %s tx/rx symbols %u/%u rate %d remote-E %d\n",v32_startup_phase_name(modem32std.physical.startup.phase),modem32std.physical.tx_symbols,modem32std.physical.rx_symbols,v32_session_rate(&modem32std.physical),modem32std.physical.remote_e);}
         if(call&&standard_v32&&modem_started){
+            if(!modem32std.physical.bis_rx_acquisition_complete)
+                v32_log_b1=-1;
+            if(modem32std.physical.bis_rx_acquisition_complete&&
+               v32_log_b1<0){
+                v32_log_b1=modem32std.physical.bis_rx_acquisition_ok;
+                fprintf(stderr,"V.32bis B1 acquisition %s, h %.5f%+.5fi EVM %.2f%%\n",
+                        v32_log_b1?"accepted":"rejected",
+                        modem32std.physical.bis_rx_eq.h_re,
+                        modem32std.physical.bis_rx_eq.h_im,
+                        modem32std.physical.bis_rx_eq.power>0.0?
+                        100.0*sqrt(modem32std.physical.bis_rx_eq.error/
+                                   modem32std.physical.bis_rx_eq.power):0.0);
+                fprintf(stderr,"V.32bis B1 timing phase %d/10 differential %u tail %u + handoff 4\n",
+                        modem32std.physical.bis_rx_selected_phase,
+                        modem32std.physical.bis_rx_selected_previous,
+                        modem32std.physical.bis_rx_skipped);
+                if(!v32_log_b1)
+                    fprintf(stderr,"V.32bis B1 exceeds %.0f%% EVM; requesting retrain\n",
+                            100.0*V32BIS_RX_MAX_B1_EVM);
+            }
             int physical=v32_session_connected(&modem32std.physical);
             if(physical!=v32_log_connected||
                (int)modem32std.lapm.state!=v42_log_state){
@@ -315,16 +335,6 @@ static void *channel_main(void *opaque) {
                         modem32std.physical.tx_marking,
                         modem32std.physical.rx_marking,v42_log_state);
                 if(physical&&modem32std.physical.startup.bis_selected){
-                    fprintf(stderr,"V.32bis B1 equalizer h %.5f%+.5fi EVM %.2f%%\n",
-                            modem32std.physical.bis_rx_eq.h_re,
-                            modem32std.physical.bis_rx_eq.h_im,
-                            modem32std.physical.bis_rx_eq.power>0.0?
-                            100.0*sqrt(modem32std.physical.bis_rx_eq.error/
-                                       modem32std.physical.bis_rx_eq.power):0.0);
-                    fprintf(stderr,"V.32bis B1 timing phase %d/10 differential %u tail %u + handoff 4\n",
-                            modem32std.physical.bis_rx_selected_phase,
-                            modem32std.physical.bis_rx_selected_previous,
-                            modem32std.physical.bis_rx_skipped);
                     fprintf(stderr,"V.32bis carrier offset %.3f Hz confidence %.3f\n",
                             modem32std.physical.bis_rx_eq.carrier_step*
                             2400.0/(2.0*M_PI),

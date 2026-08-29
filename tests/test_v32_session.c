@@ -58,10 +58,26 @@ static void run_bis(int rate)
     printf("V.32bis composite PCMA session: CONNECT %d and exact payload\n",rate);
 }
 
+static void standard_retrain_preempts_bis_data(void)
+{
+    struct v32_session s;
+    int16_t pcm[160];
+    v32bis_session_init(&s,V32_STD_CALL,9600);
+    v32_session_start_standard(&s);
+    s.startup.phase=V32_START_ONES_128;
+    s.startup.bis_selected=1;
+    s.bis_qam_ready=1;
+    v32_retrain_request(&s.retrain);
+    v32_session_generate(&s,pcm,160);
+    assert(s.retrain.state==V32_RETRAIN_REQUEST);
+    assert(s.retrain.tx_count==48);
+}
+
 int main(void)
 {
     run(0, 4800);
     run(1, 9600);
     run_bis(7200);run_bis(9600);run_bis(12000);run_bis(14400);
+    standard_retrain_preempts_bis_data();
     return 0;
 }

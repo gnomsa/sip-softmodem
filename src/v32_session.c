@@ -52,6 +52,7 @@ static void media_init(struct v32_session *s,enum v32_std_role role,
     memset(s->bis_rx_candidate_seen,0,sizeof s->bis_rx_candidate_seen);
     s->bis_rx_candidate_target=0;s->bis_rx_candidate_active=0;
     s->bis_rx_selected_phase=-1;s->bis_rx_selected_previous=0;
+    s->bis_rx_acquisition_complete=s->bis_rx_acquisition_ok=0;
     v32_line_init(&s->line);v32_line_init(&s->retrain_monitor);
     v32_qam_init(&s->qam);v32_training_init(&s->training,role);
     if(rates&(V32_RATE_7200|V32_RATE_12000|V32_RATE_14400))v32bis_startup_init(&s->startup,role,rates);
@@ -677,6 +678,16 @@ static void receive_bis_timing_candidates(struct v32_session *s,
     v32bis_qam_copy_receiver(&s->bis_qam,
                              &s->bis_rx_candidate_qam[best_phase]);
     s->bis_rx_eq=s->bis_rx_candidate_eq[best];
+    s->bis_rx_selected_phase=(int)best_phase;
+    s->bis_rx_selected_previous=best_previous;
+    s->bis_rx_acquisition_complete=1;
+    s->bis_rx_acquisition_ok=
+        best_score<=V32BIS_RX_MAX_B1_EVM*V32BIS_RX_MAX_B1_EVM;
+    if(!s->bis_rx_acquisition_ok){
+        s->bis_rx_candidate_active=0;
+        v32_retrain_request(&s->retrain);
+        return;
+    }
     {
         struct v32bis_rx_equalizer *eq=&s->bis_rx_eq;
         double correlations=eq->phase_count>1?(double)(eq->phase_count-1):1.0;
@@ -698,14 +709,24 @@ static void receive_bis_timing_candidates(struct v32_session *s,
     }
     s->rx_marking=s->bis_rx_candidate_target;
     s->bis_rx_known=128-s->rx_marking;
-    s->bis_rx_selected_phase=(int)best_phase;
-    s->bis_rx_selected_previous=best_previous;
     s->bis_rx_candidate_active=0;
     receive_bis_points(s);
 }
 
 void v32_session_generate(struct v32_session *s, int16_t *pcm, size_t count)
 {
+    if (s->retrain.state == V32_RETRAIN_RESTART) {
+        unsigned rates=s->startup.allowed_rates;media_init(s,s->role,rates);
+    }
+    if (s->retrain.state == V32_RETRAIN_REQUEST ||
+        s->retrain.state == V32_RETRAIN_ACK) {
+        enum v32_carrier_state states[64]; size_t n=count*2400/8000;
+        for(size_t i=0;i<n;i++)states[i]=v32_retrain_next(&s->retrain);
+        (void)v32_line_write(&s->line,states,n);
+        v32_line_generate(&s->line,pcm,count);
+        s->tx_samples+=count;
+        return;
+    }
     if (s->standard_startup &&
         (s->startup.phase == V32_START_AA ||
          s->startup.phase == V32_START_AC ||
@@ -758,15 +779,6 @@ void v32_session_generate(struct v32_session *s, int16_t *pcm, size_t count)
     }
     if(s->standard_startup&&s->startup.bis_selected&&s->bis_qam_ready){
         generate_standard_bis(s,pcm,count);return;
-    }
-    if (s->retrain.state == V32_RETRAIN_RESTART) {
-        unsigned rates=s->startup.allowed_rates;media_init(s,s->role,rates);
-    }
-    if (s->retrain.state == V32_RETRAIN_REQUEST || s->retrain.state == V32_RETRAIN_ACK) {
-        enum v32_carrier_state states[64]; size_t n=count*2400/8000;
-        for(size_t i=0;i<n;i++)states[i]=v32_retrain_next(&s->retrain);
-        (void)v32_line_write(&s->line,states,n);v32_line_generate(&s->line,pcm,count);
-        s->tx_samples+=count;return;
     }
     begin_data(s);
     pump_pending(s);
