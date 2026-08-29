@@ -27,6 +27,18 @@ struct v32_startup_scanner {
     int rate_ready;
 };
 
+struct v32bis_rx_equalizer {
+    struct v32bis_sample history[9],weights[9];
+    unsigned history_count,history_at;
+    int ready;
+    double error,power,h_re,h_im;
+    double carrier_cross_i,carrier_cross_q;
+    double carrier_correlation_i,carrier_correlation_q;
+    unsigned phase_count;
+    double carrier_phase,carrier_step,carrier_confidence;
+    int carrier_enabled;
+};
+
 /* Composite V.32 media session.  V.8 has already selected the V.32 family
  * before this object starts. */
 struct v32_session {
@@ -42,6 +54,7 @@ struct v32_session {
     struct v32_retrain retrain;
     struct v32_data data;
     struct v32bis_data bis_data;
+    struct v32bis_data bis_rx_reference;
     struct v32bis_qam bis_qam;
     enum v32_carrier_state last_tx, last_rx;
     uint64_t tx_samples, rx_samples;
@@ -49,7 +62,15 @@ struct v32_session {
     uint8_t pending[8192];
     size_t pending_head, pending_tail;
     int rate_tx_ready, rate_rx_ready, e_tx_ready, e_rx_ready;
-    int remote_r3, remote_e, data_ready, standard_startup;
+    int remote_r3, remote_e, data_ready, rx_data_ready, standard_startup;
+    int local_e_complete, bis_qam_ready;
+    unsigned local_e_symbols, bis_rx_known, bis_rx_skipped;
+    struct v32bis_sample bis_rx_expected[128];
+    struct v32bis_rx_equalizer bis_rx_eq;
+    struct v32bis_qam bis_rx_candidate_qam[10];
+    struct v32bis_rx_equalizer bis_rx_candidate_eq[10];
+    unsigned bis_rx_candidate_seen[10],bis_rx_candidate_target;
+    int bis_rx_candidate_active,bis_rx_selected_phase;
     unsigned startup_transition_symbols, startup_timer_symbols;
     unsigned startup_reversals, startup_tone_blocks, startup_tone_misses;
     unsigned startup_echo_symbols, startup_training_symbols;

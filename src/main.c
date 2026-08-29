@@ -314,6 +314,21 @@ static void *channel_main(void *opaque) {
                         physical?"connected":"training",
                         modem32std.physical.tx_marking,
                         modem32std.physical.rx_marking,v42_log_state);
+                if(physical&&modem32std.physical.startup.bis_selected){
+                    fprintf(stderr,"V.32bis B1 equalizer h %.5f%+.5fi EVM %.2f%%\n",
+                            modem32std.physical.bis_rx_eq.h_re,
+                            modem32std.physical.bis_rx_eq.h_im,
+                            modem32std.physical.bis_rx_eq.power>0.0?
+                            100.0*sqrt(modem32std.physical.bis_rx_eq.error/
+                                       modem32std.physical.bis_rx_eq.power):0.0);
+                    fprintf(stderr,"V.32bis B1 timing phase %d/10 tail %u + handoff 4\n",
+                            modem32std.physical.bis_rx_selected_phase,
+                            modem32std.physical.bis_rx_skipped);
+                    fprintf(stderr,"V.32bis carrier offset %.3f Hz confidence %.3f\n",
+                            modem32std.physical.bis_rx_eq.carrier_step*
+                            2400.0/(2.0*M_PI),
+                            modem32std.physical.bis_rx_eq.carrier_confidence);
+                }
             }
         }
         if(call&&((!acked&&now-call_started>32000)||(last_rtp&&now-last_rtp>30000))){fprintf(stderr,"call timed out\n");call=acked=0;last_ok_len=0;}
