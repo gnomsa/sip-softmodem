@@ -144,10 +144,10 @@ V.34 is advertised through V.8 and connected to the live SIP/RTP/PTY path, but
 has only been validated between two copies of this program over loss-free PCMA.
 The 4800/9600 implementation remains a clean-room laboratory modem. Standard
 V.32bis start-up and `CONNECT 9600` have been observed against a physical CSD
-endpoint through SIP/PCMA, but error-free user data has not yet been demonstrated.
-Timing acquisition and adaptive equalisation are present; carrier recovery,
-long-term clock tracking, echo cancellation and retraining still need validation
-on physical telephone paths.
+endpoint through SIP/PCMA. Error-free incoming PPP/LCP frames have also been
+decoded from a physical 9600-bit/s call. Timing acquisition and adaptive
+equalisation are present; carrier recovery, long-term clock tracking, echo
+cancellation and retraining still need validation on physical telephone paths.
 
 ## Build and test
 
@@ -286,7 +286,8 @@ been demonstrated.
 
 ## Physical CSD interoperability status
 
-On 2026-08-29 the calling side was tested through a direct SIP trunk carrying
+On 2026-08-29 and 2026-08-30 the calling side was tested through a direct SIP
+trunk carrying
 20 ms PCMA packets to a physical cellular CSD endpoint. The remote address,
 telephone number and caller identity are intentionally omitted from this public
 document.
@@ -301,23 +302,31 @@ The following has been observed on successful calls:
   E response was observed about 0.4 seconds after local E instead of the earlier
   invalid 18-second detection;
 - the PTY reports `CONNECT 9600`;
-- ten-phase B1 acquisition reduced measured training EVM from 90.26% to 41.88%
-  on one comparable successful run and selected phase 1/10;
-- the decoded stream began to contain repeated PPP-like flag and escape octets.
+- fractional matched-filter interpolation makes all ten B1 timing phases real
+  sampling phases rather than nearest-sample aliases;
+- joint timing and four-state differential acquisition reduced B1 EVM from
+  94.80% to 20.90% on a clean successful run;
+- V.14 deleted-stop-bit handling recovered the character immediately before a
+  shared PPP flag. Offline replay of the captured PCMA then decoded ten
+  consecutive 35-byte PPP LCP Configure-Request frames, all ten with a valid
+  CRC-16/FCS;
+- that capture contained 2155 inbound RTP packets with no sequence gaps. The
+  only non-160 timestamp increments were three startup increments before the
+  continuous media stream settled.
 
-These results prove physical start-up interoperability, not a working data
-link. Offline inspection of that capture found zero PPP frames with a valid
-16-bit FCS. Therefore PPP, transparent byte transfer, effective throughput and
-answer-side interoperability with a physical modem remain unconfirmed.
+These results prove physical start-up and error-free incoming user-data
+interoperability on a successful call. A complete bidirectional PPP session was
+not established because no local `pppd` peer answered the remote LCP requests;
+effective application throughput and answer-side interoperability with a
+physical modem therefore remain unconfirmed.
 
-Subsequent code corrects a four-symbol receiver-delay discontinuity at the
-E-to-B1 handoff and estimates carrier offset only when the B1 correlation is
-coherent and within the V.32bis ±7 Hz receiver requirement. Those two changes
-passed the complete deterministic test suite, but have not yet been validated
-on a clean physical call: later attempts either received no remote E or suffered
-large RTP gaps while the test host was busy with backup work. For meaningful
-physical measurements, avoid simultaneous disk/network-heavy jobs and reject
-any run containing RTP gaps.
+Physical acquisition is not yet reliable on every attempt. Another gap-free
+call reached `CONNECT 9600` but had 111.94% B1 EVM and produced no valid data;
+none of the timing or differential candidates correlated with the known B1
+sequence. This remains an equaliser/carrier-training problem rather than a SIP
+or packet-loss problem. For meaningful measurements, avoid simultaneous
+disk/network-heavy jobs, reject runs containing RTP gaps, and record B1 EVM
+alongside data-layer FCS results.
 
 ## Install as a service
 
