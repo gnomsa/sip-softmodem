@@ -15,6 +15,8 @@ struct v32bis_qam {
     double rx_fir_i[64],rx_fir_q[64];
     unsigned rx_fir_at,rx_fir_count;
     int64_t rx_last_symbol;
+    double rx_previous_i,rx_previous_q,rx_previous_position;
+    int rx_interpolator_ready;
     int pulse_shaped;
 };
 int v32bis_qam_init(struct v32bis_qam*q,int rate);

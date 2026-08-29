@@ -80,11 +80,30 @@ static void receive_shaped_selected(struct v32bis_qam*q,const int16_t*in,size_t 
         double i,v;if(!matched_sample(q,in[k],&i,&v))continue;
         double symbol_position=((double)(q->rx_samples-1)*2400.0/8000.0)-8.0+
                                q->rx_clock;
-        int64_t symbol=(int64_t)floor(symbol_position+0.5);
-        if(symbol<=q->rx_last_symbol)continue;
-        q->rx_last_symbol=symbol;
-        size_t next=(q->rt+1)&MASK;
-        if(next!=q->rh){q->rx[q->rt]=(struct v32bis_sample){i/q->gain,v/q->gain};q->rt=next;}
+        if(!q->rx_interpolator_ready){
+            q->rx_previous_i=i;q->rx_previous_q=v;
+            q->rx_previous_position=symbol_position;
+            q->rx_last_symbol=(int64_t)floor(symbol_position);
+            q->rx_interpolator_ready=1;continue;
+        }
+        int64_t symbol=q->rx_last_symbol+1;
+        if((double)symbol<=symbol_position){
+            double span=symbol_position-q->rx_previous_position;
+            double fraction=span>1e-12?
+                ((double)symbol-q->rx_previous_position)/span:1.0;
+            if(fraction<0.0)fraction=0.0;
+            if(fraction>1.0)fraction=1.0;
+            double si=q->rx_previous_i+(i-q->rx_previous_i)*fraction;
+            double sq=q->rx_previous_q+(v-q->rx_previous_q)*fraction;
+            size_t next=(q->rt+1)&MASK;
+            if(next!=q->rh){
+                q->rx[q->rt]=(struct v32bis_sample){si/q->gain,sq/q->gain};
+                q->rt=next;
+            }
+            q->rx_last_symbol=symbol;
+        }
+        q->rx_previous_i=i;q->rx_previous_q=v;
+        q->rx_previous_position=symbol_position;
     }
 }
 static void receive_shaped(struct v32bis_qam*q,const int16_t*in,size_t n)
@@ -103,4 +122,8 @@ void v32bis_qam_copy_receiver(struct v32bis_qam*dst,
     memcpy(dst->rx_fir_q,src->rx_fir_q,sizeof dst->rx_fir_q);
     dst->rx_fir_at=src->rx_fir_at;dst->rx_fir_count=src->rx_fir_count;
     dst->rx_last_symbol=src->rx_last_symbol;
+    dst->rx_previous_i=src->rx_previous_i;
+    dst->rx_previous_q=src->rx_previous_q;
+    dst->rx_previous_position=src->rx_previous_position;
+    dst->rx_interpolator_ready=src->rx_interpolator_ready;
 }
