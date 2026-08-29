@@ -31,7 +31,7 @@ source code, binaries or VM images from other modem projects.
 - V.8 ANSam generation and detection through G.711 A-law, including 15 Hz
   envelope modulation and 450 ms phase reversals
 - standard V.32 GPC/GPA scramblers, differential coding, R/E rate words and
-  exact 256 S + 16 S-bar + 1280 TRN symbol generation (not live yet)
+  exact 256 S + 16 S-bar + 1280 TRN symbol generation in the live SIP path
 - standard V.32 1800 Hz/2400-baud A/B/C/D line transport and bidirectional
   4800-bit/s data path; deterministic PCMA tests currently report zero errors
 - standard V.32 nonredundant 16-state 9600-bit/s mapping and bidirectional data
@@ -142,12 +142,12 @@ low-jitter signal and does not yet implement full timing recovery, adaptive
 equalisation, echo cancellation, all SIP transaction timers, RTCP or TCP SIP.
 V.34 is advertised through V.8 and connected to the live SIP/RTP/PTY path, but
 has only been validated between two copies of this program over loss-free PCMA.
-The 4800/9600 implementation remains a clean-room laboratory waveform between
-two instances of this program. Its start-up is connected end to end, but it is
-not yet proven interoperable with an ITU-T V.32 hardware modem: carrier/timing
-recovery, echo cancellation and adaptive equalisation remain to be implemented.
-Retraining works between two copies in deterministic PCMA tests but still needs
-validation on physical telephone paths.
+The 4800/9600 implementation remains a clean-room laboratory modem. Standard
+V.32bis start-up and `CONNECT 9600` have been observed against a physical CSD
+endpoint through SIP/PCMA, but error-free user data has not yet been demonstrated.
+Timing acquisition and adaptive equalisation are present; carrier recovery,
+long-term clock tracking, echo cancellation and retraining still need validation
+on physical telephone paths.
 
 ## Build and test
 
@@ -283,6 +283,41 @@ frames, cumulative acknowledgements, REJ retransmission, T401 retries, XID
 parameter negotiation and SABME/UA establishment.  It is exercised between two
 copies of this program; interoperability with a hardware LAPM modem has not yet
 been demonstrated.
+
+## Physical CSD interoperability status
+
+On 2026-08-29 the calling side was tested through a direct SIP trunk carrying
+20 ms PCMA packets to a physical cellular CSD endpoint. The remote address,
+telephone number and caller identity are intentionally omitted from this public
+document.
+
+The following has been observed on successful calls:
+
+- SIP `INVITE`, provisional responses, `200 OK`, `ACK`, bidirectional PCMA RTP
+  and remote `BYE` complete normally;
+- V.8 selects the V.32 family and V.32bis selects 9600 bit/s;
+- the physical endpoint accepts the corrected whole-word R2-to-E transition;
+- after preserving the rate-signal scrambler and differential state, the remote
+  E response was observed about 0.4 seconds after local E instead of the earlier
+  invalid 18-second detection;
+- the PTY reports `CONNECT 9600`;
+- ten-phase B1 acquisition reduced measured training EVM from 90.26% to 41.88%
+  on one comparable successful run and selected phase 1/10;
+- the decoded stream began to contain repeated PPP-like flag and escape octets.
+
+These results prove physical start-up interoperability, not a working data
+link. Offline inspection of that capture found zero PPP frames with a valid
+16-bit FCS. Therefore PPP, transparent byte transfer, effective throughput and
+answer-side interoperability with a physical modem remain unconfirmed.
+
+Subsequent code corrects a four-symbol receiver-delay discontinuity at the
+E-to-B1 handoff and estimates carrier offset only when the B1 correlation is
+coherent and within the V.32bis ±7 Hz receiver requirement. Those two changes
+passed the complete deterministic test suite, but have not yet been validated
+on a clean physical call: later attempts either received no remote E or suffered
+large RTP gaps while the test host was busy with backup work. For meaningful
+physical measurements, avoid simultaneous disk/network-heavy jobs and reject
+any run containing RTP gaps.
 
 ## Install as a service
 
