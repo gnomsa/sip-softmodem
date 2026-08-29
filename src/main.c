@@ -321,8 +321,9 @@ static void *channel_main(void *opaque) {
                             modem32std.physical.bis_rx_eq.power>0.0?
                             100.0*sqrt(modem32std.physical.bis_rx_eq.error/
                                        modem32std.physical.bis_rx_eq.power):0.0);
-                    fprintf(stderr,"V.32bis B1 timing phase %d/10 tail %u + handoff 4\n",
+                    fprintf(stderr,"V.32bis B1 timing phase %d/10 differential %u tail %u + handoff 4\n",
                             modem32std.physical.bis_rx_selected_phase,
+                            modem32std.physical.bis_rx_selected_previous,
                             modem32std.physical.bis_rx_skipped);
                     fprintf(stderr,"V.32bis carrier offset %.3f Hz confidence %.3f\n",
                             modem32std.physical.bis_rx_eq.carrier_step*

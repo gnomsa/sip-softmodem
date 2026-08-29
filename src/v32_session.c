@@ -51,7 +51,7 @@ static void media_init(struct v32_session *s,enum v32_std_role role,
     memset(s->bis_rx_candidate_eq,0,sizeof s->bis_rx_candidate_eq);
     memset(s->bis_rx_candidate_seen,0,sizeof s->bis_rx_candidate_seen);
     s->bis_rx_candidate_target=0;s->bis_rx_candidate_active=0;
-    s->bis_rx_selected_phase=-1;
+    s->bis_rx_selected_phase=-1;s->bis_rx_selected_previous=0;
     v32_line_init(&s->line);v32_line_init(&s->retrain_monitor);
     v32_qam_init(&s->qam);v32_training_init(&s->training,role);
     if(rates&(V32_RATE_7200|V32_RATE_12000|V32_RATE_14400))v32bis_startup_init(&s->startup,role,rates);
@@ -400,34 +400,41 @@ static void begin_data(struct v32_session *s)
         }
         s->bis_qam.rx_fir_at=s->bis_qam.rx_fir_count=0;
         s->bis_qam.rx_last_symbol=0;
-        (void)v32bis_data_init(&s->bis_rx_reference,other(s->role),
-                               s->startup.selected_rate);
-        s->bis_rx_reference.tx_scr=s->e_rx.descr;
-        s->bis_rx_reference.tx_previous=s->bis_data.rx_previous;
         unsigned skipped=s->bis_rx_skipped+V32BIS_RX_HANDOFF_SYMBOLS;
         if(skipped>128)skipped=128;
-        for(unsigned k=0;k<128;k++){
-            unsigned label=v32bis_data_next(&s->bis_rx_reference);
-            struct v32bis_point point;
-            (void)v32bis_map_point(s->startup.selected_rate,label,&point);
-            s->bis_rx_expected[k]=(struct v32bis_sample){point.i,point.q};
-            if(k<skipped)(void)v32bis_data_put(&s->bis_data,point.i,point.q);
+        for(unsigned previous=0;
+            previous<V32BIS_RX_DIFFERENTIAL_STATES;previous++){
+            (void)v32bis_data_init(&s->bis_rx_reference,other(s->role),
+                                   s->startup.selected_rate);
+            s->bis_rx_reference.tx_scr=s->e_rx.descr;
+            s->bis_rx_reference.tx_previous=previous;
+            for(unsigned k=0;k<128;k++){
+                unsigned label=v32bis_data_next(&s->bis_rx_reference);
+                struct v32bis_point point;
+                (void)v32bis_map_point(s->startup.selected_rate,label,&point);
+                s->bis_rx_candidate_expected[previous][k]=
+                    (struct v32bis_sample){point.i,point.q};
+            }
         }
+        memcpy(s->bis_rx_expected,
+               s->bis_rx_candidate_expected[s->bis_data.rx_previous&3u],
+               sizeof s->bis_rx_expected);
         s->bis_rx_known=128-skipped;s->rx_marking=skipped;
         memset(&s->bis_rx_eq,0,sizeof s->bis_rx_eq);
         s->bis_rx_candidate_target=skipped+64;
         if(s->bis_rx_candidate_target>120)s->bis_rx_candidate_target=120;
-        for(unsigned phase=0;phase<10;phase++){
+        for(unsigned phase=0;phase<V32BIS_RX_TIMING_PHASES;phase++){
             (void)v32bis_qam_init(&s->bis_rx_candidate_qam[phase],
                                   s->startup.selected_rate);
             v32bis_qam_set_pulse_shaped(&s->bis_rx_candidate_qam[phase],1);
-            s->bis_rx_candidate_qam[phase].rx_clock=(double)phase/10.0;
+            s->bis_rx_candidate_qam[phase].rx_clock=
+                (double)phase/(double)V32BIS_RX_TIMING_PHASES;
             s->bis_rx_candidate_qam[phase].rx_samples=s->bis_qam.rx_samples;
             s->bis_rx_candidate_seen[phase]=skipped;
-            memset(&s->bis_rx_candidate_eq[phase],0,
-                   sizeof s->bis_rx_candidate_eq[phase]);
         }
+        memset(s->bis_rx_candidate_eq,0,sizeof s->bis_rx_candidate_eq);
         s->bis_rx_candidate_active=1;s->bis_rx_selected_phase=-1;
+        s->bis_rx_selected_previous=s->bis_data.rx_previous&3u;
         s->rx_data_ready=1;
         return;
     }
@@ -634,7 +641,7 @@ static void receive_bis_timing_candidates(struct v32_session *s,
                                            const int16_t *pcm,size_t count)
 {
     int complete=1;
-    for(unsigned phase=0;phase<10;phase++){
+    for(unsigned phase=0;phase<V32BIS_RX_TIMING_PHASES;phase++){
         struct v32bis_qam *qam=&s->bis_rx_candidate_qam[phase];
         v32bis_qam_receive(qam,pcm,count);
         unsigned seen=s->bis_rx_candidate_seen[phase];
@@ -643,9 +650,15 @@ static void receive_bis_timing_candidates(struct v32_session *s,
         struct v32bis_sample points[128];
         size_t n=v32bis_qam_read(qam,points,remaining);
         for(size_t i=0;i<n;i++){
-            struct v32bis_sample output;
-            (void)equalize_bis_point(&s->bis_rx_candidate_eq[phase],points[i],
-                s->bis_rx_expected[seen],1,s->startup.selected_rate,&output);
+            for(unsigned previous=0;
+                previous<V32BIS_RX_DIFFERENTIAL_STATES;previous++){
+                unsigned candidate=
+                    previous*V32BIS_RX_TIMING_PHASES+phase;
+                struct v32bis_sample output;
+                (void)equalize_bis_point(&s->bis_rx_candidate_eq[candidate],
+                    points[i],s->bis_rx_candidate_expected[previous][seen],1,
+                    s->startup.selected_rate,&output);
+            }
             seen++;
         }
         s->bis_rx_candidate_seen[phase]=seen;
@@ -653,12 +666,16 @@ static void receive_bis_timing_candidates(struct v32_session *s,
     }
     if(!complete)return;
     unsigned best=0;double best_score=HUGE_VAL;
-    for(unsigned phase=0;phase<10;phase++){
-        const struct v32bis_rx_equalizer *eq=&s->bis_rx_candidate_eq[phase];
+    for(unsigned candidate=0;candidate<V32BIS_RX_CANDIDATES;candidate++){
+        const struct v32bis_rx_equalizer *eq=
+            &s->bis_rx_candidate_eq[candidate];
         double score=eq->power>0.0?eq->error/eq->power:HUGE_VAL;
-        if(score<best_score){best=phase;best_score=score;}
+        if(score<best_score){best=candidate;best_score=score;}
     }
-    v32bis_qam_copy_receiver(&s->bis_qam,&s->bis_rx_candidate_qam[best]);
+    unsigned best_phase=best%V32BIS_RX_TIMING_PHASES;
+    unsigned best_previous=best/V32BIS_RX_TIMING_PHASES;
+    v32bis_qam_copy_receiver(&s->bis_qam,
+                             &s->bis_rx_candidate_qam[best_phase]);
     s->bis_rx_eq=s->bis_rx_candidate_eq[best];
     {
         struct v32bis_rx_equalizer *eq=&s->bis_rx_eq;
@@ -672,13 +689,18 @@ static void receive_bis_timing_candidates(struct v32_session *s,
             eq->carrier_step=0.0;
         eq->carrier_phase=eq->carrier_step;eq->carrier_enabled=1;
     }
-    for(unsigned k=s->rx_marking;k<s->bis_rx_candidate_target;k++){
+    memcpy(s->bis_rx_expected,s->bis_rx_candidate_expected[best_previous],
+           sizeof s->bis_rx_expected);
+    s->bis_data.rx_previous=best_previous;
+    for(unsigned k=0;k<s->bis_rx_candidate_target;k++){
         struct v32bis_sample point=s->bis_rx_expected[k];
         (void)v32bis_data_put(&s->bis_data,point.i,point.q);
     }
     s->rx_marking=s->bis_rx_candidate_target;
     s->bis_rx_known=128-s->rx_marking;
-    s->bis_rx_selected_phase=(int)best;s->bis_rx_candidate_active=0;
+    s->bis_rx_selected_phase=(int)best_phase;
+    s->bis_rx_selected_previous=best_previous;
+    s->bis_rx_candidate_active=0;
     receive_bis_points(s);
 }
 

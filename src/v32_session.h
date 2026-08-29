@@ -18,6 +18,10 @@
  * relatively long joint carrier/symbol phase cycle.  Cover enough sample
  * offsets to include every word alignment seen with 20-ms RTP starts. */
 #define V32_STARTUP_SCANNERS 96
+#define V32BIS_RX_TIMING_PHASES 10
+#define V32BIS_RX_DIFFERENTIAL_STATES 4
+#define V32BIS_RX_CANDIDATES \
+    (V32BIS_RX_TIMING_PHASES*V32BIS_RX_DIFFERENTIAL_STATES)
 
 struct v32_startup_scanner {
     struct v32_line line;
@@ -66,11 +70,15 @@ struct v32_session {
     int local_e_complete, bis_qam_ready;
     unsigned local_e_symbols, bis_rx_known, bis_rx_skipped;
     struct v32bis_sample bis_rx_expected[128];
+    struct v32bis_sample
+        bis_rx_candidate_expected[V32BIS_RX_DIFFERENTIAL_STATES][128];
     struct v32bis_rx_equalizer bis_rx_eq;
-    struct v32bis_qam bis_rx_candidate_qam[10];
-    struct v32bis_rx_equalizer bis_rx_candidate_eq[10];
-    unsigned bis_rx_candidate_seen[10],bis_rx_candidate_target;
+    struct v32bis_qam bis_rx_candidate_qam[V32BIS_RX_TIMING_PHASES];
+    struct v32bis_rx_equalizer bis_rx_candidate_eq[V32BIS_RX_CANDIDATES];
+    unsigned bis_rx_candidate_seen[V32BIS_RX_TIMING_PHASES];
+    unsigned bis_rx_candidate_target;
     int bis_rx_candidate_active,bis_rx_selected_phase;
+    unsigned bis_rx_selected_previous;
     unsigned startup_transition_symbols, startup_timer_symbols;
     unsigned startup_reversals, startup_tone_blocks, startup_tone_misses;
     unsigned startup_echo_symbols, startup_training_symbols;
