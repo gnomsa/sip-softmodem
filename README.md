@@ -319,6 +319,11 @@ The following has been observed on successful calls:
 - a live call after installing that recovery reached `CONNECT 9600` with an
   uncorrected exact E word and 31.85% B1 EVM. Its 2076 inbound RTP packets had
   no sequence gaps, and all ten received 35-byte PPP/LCP frames had valid FCS;
+- a subsequent live `pppd` call proved the user-data path in both directions:
+  the physical peer acknowledged the local LCP Configure-Request, the local
+  peer decoded its LCP requests and returned Configure-Reject/Configure-Nak,
+  and the physical peer received those replies and changed its next request.
+  IPCP was not reached because that endpoint requires CHAP-MD5 credentials;
 - V.14 deleted-stop-bit handling recovered the character immediately before a
   shared PPP flag. Offline replay of the captured PCMA then decoded ten
   consecutive 35-byte PPP LCP Configure-Request frames, all ten with a valid
@@ -328,10 +333,9 @@ The following has been observed on successful calls:
   continuous media stream settled.
 
 These results prove physical start-up and error-free incoming user-data
-interoperability on a successful call. A complete bidirectional PPP session was
-not established because no local `pppd` peer answered the remote LCP requests;
-effective application throughput and answer-side interoperability with a
-physical modem therefore remain unconfirmed.
+interoperability on a successful call and bidirectional LCP transport. A
+complete authenticated PPP/IP session, effective application throughput and
+answer-side interoperability with a physical modem remain unconfirmed.
 
 Physical acquisition is not yet reliable on every attempt. Another gap-free
 call had 111.94% B1 EVM and produced no valid data; none of the timing or
@@ -366,6 +370,13 @@ decoded byte count. Capture files and extracted payloads can contain private
 telephone and network metadata and should remain outside the repository.
 `ppp_fcs_check` removes RFC 1662 escaping and counts frames whose received
 CRC-16 has the standard `0xf0b8` good residue.
+
+After an established carrier is lost, the channel writes `NO CARRIER`, closes
+the old PTY master and atomically replaces the public symlink with a fresh PTY.
+This gives programs such as `pppd` an immediate hangup/EOF instead of allowing
+their post-disconnect PPP bytes to enter AT command mode and be echoed back as
+a false loopback. A terminal program should reopen the same public symlink for
+the next call.
 
 ## Install as a service
 

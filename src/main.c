@@ -154,7 +154,7 @@ static void *channel_main(void *opaque) {
     if(rtp_fd<0||pty_fd<0){fprintf(stderr,"channel %u startup: %s\n",args->index,strerror(errno));stopping=1;return NULL;} fcntl(pty_fd,F_SETFL,fcntl(pty_fd,F_GETFL)|O_NONBLOCK);
     fprintf(stderr,"channel %u: SIP %s:%u, RTP %s:%u, %d bit/s, PTY %s -> %s\n",args->index,c.bind_ip,c.sip_port,c.bind_ip,c.rtp_port,c.speed,c.tty_path,slave);
 
-    struct sockaddr_in peer_rtp={0},peer_sip={0},out_peer={0}; socklen_t peer_sip_len=sizeof peer_sip; int call=0,acked=0,pending=0,answer_requested=0,connect_reported=0,dialing=0,dial_requested=0,invite_retransmit=0,answer_side=0,ans_observed=0,ans_complete=0,v8_done=0,modem_started=0,v8_last_state=-1,v8_cj_pending=0,v8_cj_active=0;
+    struct sockaddr_in peer_rtp={0},peer_sip={0},out_peer={0}; socklen_t peer_sip_len=sizeof peer_sip; int call=0,acked=0,pending=0,answer_requested=0,connect_reported=0,pty_carrier=0,dialing=0,dial_requested=0,invite_retransmit=0,answer_side=0,ans_observed=0,ans_complete=0,v8_done=0,modem_started=0,v8_last_state=-1,v8_cj_pending=0,v8_cj_active=0;
     struct sip_request pending_req;char remote_ip[64]="";uint16_t remote_port=0;
     char dialog_id[256]="", tag[32],last_ok[4096]="",last_ring[2048]=""; int last_ok_len=0,last_ring_len=0; snprintf(tag,sizeof tag,"%08x",(unsigned)rand());
     char out_uri[256]="",out_invite[4096]="",out_via[256]="",out_from[256]="",out_contact[256]="";int out_len=0;
@@ -212,7 +212,7 @@ static void *channel_main(void *opaque) {
                 int m=sip_make_response(output,sizeof output,&req,180,"Ringing",tag,contact,c.user_agent,"");send_sip(sip_fd,&from,output,m);memcpy(last_ring,output,(size_t)m);last_ring_len=m;
                 pending=1;next_ring=now_ms()+6000;char atout[1024];enum at_event ev=at_ring_caller(&at,req.from,atout,sizeof atout);(void)write(pty_fd,atout,strnlen(atout,sizeof atout));if(ev==AT_EVENT_ANSWER)answer_requested=1;
             } else if(!strcmp(req.method,"ACK") && call && !strcmp(req.call_id,dialog_id)) acked=1;
-            else if(!strcmp(req.method,"BYE") && call && !strcmp(req.call_id,dialog_id)) {int m=sip_make_response(output,sizeof output,&req,200,"OK",tag,contact,c.user_agent,"");send_sip(sip_fd,&from,output,m);call=acked=0;char atout[128];size_t z=at_no_carrier(&at,atout,sizeof atout);(void)write(pty_fd,atout,z);fprintf(stderr,"call ended\n");}
+            else if(!strcmp(req.method,"BYE") && call && !strcmp(req.call_id,dialog_id)) {int m=sip_make_response(output,sizeof output,&req,200,"OK",tag,contact,c.user_agent,"");send_sip(sip_fd,&from,output,m);call=acked=0;fprintf(stderr,"call ended\n");}
         }
         if(call && (fds[1].revents&POLLIN)) {
             uint8_t packet[2048];ssize_t n=recv(rtp_fd,packet,sizeof packet,0);struct rtp_packet rp;
@@ -354,7 +354,22 @@ static void *channel_main(void *opaque) {
         if(call&&((!acked&&now-call_started>32000)||(last_rtp&&now-last_rtp>30000))){fprintf(stderr,"call timed out\n");call=acked=0;last_ok_len=0;}
         int negotiated=c.speed;if(standard_v34){v34_mode mode;if(v34_modem_session_mode(&modem34,&mode))negotiated=(int)(mode.tx_rate<mode.rx_rate?mode.tx_rate:mode.rx_rate);}else if(c.speed==2400)negotiated=v22bis_selected_rate(&modem22bis);else if(standard_v32)negotiated=v42_v32_rate(&modem32std);
         int trained=modem_started&&(standard_v34?v34_modem_session_connected(&modem34):(c.speed==2400?v22bis_connected(&modem22bis):standard_v32?v42_v32_connected(&modem32std):((answer_side||ans_complete)&&now-call_started>5200)));
-        if(call&&acked&&!connect_reported&&trained){char atout[128];size_t z=at_connected(&at,negotiated,atout,sizeof atout);(void)write(pty_fd,atout,z);connect_reported=1;}
+        if(call&&acked&&!connect_reported&&trained){char atout[128];size_t z=at_connected(&at,negotiated,atout,sizeof atout);(void)write(pty_fd,atout,z);connect_reported=pty_carrier=1;}
+        if(pty_carrier&&!call){
+            report_no_carrier(&at,pty_fd);
+            int replacement=pty_replace_link(pty_fd,c.tty_path,slave,sizeof slave);
+            if(replacement<0){
+                fprintf(stderr,"channel %u PTY carrier drop: %s\n",
+                        args->index,strerror(errno));
+                stopping=1;break;
+            }
+            pty_fd=replacement;
+            fcntl(pty_fd,F_SETFL,fcntl(pty_fd,F_GETFL)|O_NONBLOCK);
+            at_init(&at);at.s0=1;at.max_speed=c.speed;
+            pty_carrier=connect_reported=0;pty_probe=0;
+            fprintf(stderr,"channel %u carrier dropped; PTY reopened at %s\n",
+                    args->index,slave);
+        }
         if(!call&&!pending&&!dialing&&dialog_id[0]){route_release(args->index,dialog_id);dialog_id[0]='\0';}
     }
     route_release(args->index,NULL);(void)peer_sip;(void)peer_sip_len;close(pty_fd);close(rtp_fd);close(sip_rx_fd);unlink(c.tty_path);return NULL;

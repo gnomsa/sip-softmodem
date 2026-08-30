@@ -23,3 +23,10 @@ int pty_open_link(const char *link_path,char *slave_name,size_t cap) {
 fail:
     { int saved=errno; if(master>=0)close(master); if(slave>=0)close(slave); errno=saved; return -1; }
 }
+
+int pty_replace_link(int old_master,const char *link_path,char *slave_name,
+                     size_t capacity)
+{
+    if(old_master>=0)close(old_master);
+    return pty_open_link(link_path,slave_name,capacity);
+}
