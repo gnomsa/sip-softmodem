@@ -26,6 +26,7 @@
     (V32BIS_RX_TIMING_PHASES*V32BIS_RX_DIFFERENTIAL_STATES* \
      V32BIS_RX_ALIGNMENTS)
 #define V32BIS_RX_MAX_B1_EVM 0.60
+#define V32BIS_RX_RETRAIN_WAIT_SYMBOLS 384
 
 struct v32_startup_scanner {
     struct v32_line line;
@@ -84,6 +85,8 @@ struct v32_session {
     int bis_rx_candidate_active,bis_rx_selected_phase;
     int bis_rx_selected_alignment;
     int bis_rx_acquisition_complete,bis_rx_acquisition_ok;
+    unsigned bis_rx_retrain_ab_at_failure;
+    unsigned bis_rx_reject_wait_symbols;
     unsigned bis_rx_selected_previous;
     unsigned startup_transition_symbols, startup_timer_symbols;
     unsigned startup_reversals, startup_tone_blocks, startup_tone_misses;

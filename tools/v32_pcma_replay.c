@@ -71,7 +71,8 @@ int main(int argc,char **argv)
     fprintf(stdout,
         "start=%u blocks=%zu phase=%s rate=%d bis=%d E=%d connected=%d "
         "mark=%u/%u skip=%u timing=%d previous=%u alignment=%+d acquisition=%d/%d "
-        "retrain=%d EVM=%.2f%% carrier=%+.3fHz/%.3f bytes=%zu\n",
+        "retrain=%d ab=%u cd=%u reject-ab=%u wait=%u EVM=%.2f%% "
+        "carrier=%+.3fHz/%.3f bytes=%zu\n",
         start,blocks,v32_startup_phase_name(session.startup.phase),
         v32_session_rate(&session),session.startup.bis_selected,
         session.remote_e,v32_session_connected(&session),session.tx_marking,
@@ -79,6 +80,9 @@ int main(int argc,char **argv)
         session.bis_rx_selected_phase,session.bis_rx_selected_previous,
         session.bis_rx_selected_alignment,
         session.bis_rx_acquisition_complete,session.bis_rx_acquisition_ok,
-        session.retrain.state,evm,carrier_offset,carrier_confidence,total);
+        session.retrain.state,session.retrain.ab_count,
+        session.retrain.cd_count,session.bis_rx_retrain_ab_at_failure,
+        session.bis_rx_reject_wait_symbols,evm,carrier_offset,
+        carrier_confidence,total);
     return 0;
 }

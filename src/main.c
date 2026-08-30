@@ -332,8 +332,9 @@ static void *channel_main(void *opaque) {
                         modem32std.physical.bis_rx_selected_alignment,
                         modem32std.physical.bis_rx_skipped);
                 if(!v32_log_b1)
-                    fprintf(stderr,"V.32bis B1 exceeds %.0f%% EVM; requesting retrain\n",
-                            100.0*V32BIS_RX_MAX_B1_EVM);
+                    fprintf(stderr,"V.32bis B1 exceeds %.0f%% EVM; listening %u symbols for remote retrain\n",
+                            100.0*V32BIS_RX_MAX_B1_EVM,
+                            V32BIS_RX_RETRAIN_WAIT_SYMBOLS);
             }
             int physical=v32_session_connected(&modem32std.physical);
             if(physical!=v32_log_connected||

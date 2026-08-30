@@ -353,8 +353,12 @@ Physical acquisition is not yet reliable on every attempt. Another gap-free
 call had 111.94% B1 EVM and produced no valid data; none of the timing or
 differential candidates correlated with the known B1 sequence. B1 acquisition
 now requires no more than 60% EVM. A worse result is rejected before `CONNECT`
-or user data is reported, and the transmitter immediately sends the standard
-in-band retrain request. This remains an equaliser/carrier-training problem
+or user data is reported. The receiver continues watching for the full
+256-symbol remote A/B retrain request before initiating its own request; this
+prevents both modems from transmitting A/B simultaneously instead of replying
+with C/D. If no remote request is detected during the 384-symbol arbitration
+window, the transmitter sends the standard in-band retrain request. This
+remains an equaliser/carrier-training problem
 rather than a SIP or packet-loss problem. For meaningful measurements, avoid
 simultaneous disk/network-heavy jobs, reject runs containing RTP gaps, and
 record B1 EVM alongside data-layer FCS results.

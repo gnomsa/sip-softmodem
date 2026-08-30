@@ -54,6 +54,8 @@ static void media_init(struct v32_session *s,enum v32_std_role role,
     s->bis_rx_selected_phase=-1;s->bis_rx_selected_previous=0;
     s->bis_rx_selected_alignment=0;
     s->bis_rx_acquisition_complete=s->bis_rx_acquisition_ok=0;
+    s->bis_rx_retrain_ab_at_failure=0;
+    s->bis_rx_reject_wait_symbols=0;
     v32_line_init(&s->line);v32_line_init(&s->retrain_monitor);
     v32_qam_init(&s->qam);v32_training_init(&s->training,role);
     if(rates&(V32_RATE_7200|V32_RATE_12000|V32_RATE_14400))v32bis_startup_init(&s->startup,role,rates);
@@ -700,7 +702,7 @@ static void receive_bis_timing_candidates(struct v32_session *s,
         best_score<=V32BIS_RX_MAX_B1_EVM*V32BIS_RX_MAX_B1_EVM;
     if(!s->bis_rx_acquisition_ok){
         s->bis_rx_candidate_active=0;
-        v32_retrain_request(&s->retrain);
+        s->bis_rx_retrain_ab_at_failure=s->retrain.ab_count;
         return;
     }
     {
@@ -823,7 +825,9 @@ void v32_session_media_gap(struct v32_session *s)
 
 static int monitor_retrain(struct v32_session *s,const int16_t *pcm,size_t count)
 {
-    if(!v32_session_connected(s) && s->retrain.state==V32_RETRAIN_IDLE)return 0;
+    if(!v32_session_connected(s)&&s->retrain.state==V32_RETRAIN_IDLE&&
+       !s->bis_rx_candidate_active&&
+       !(s->bis_rx_acquisition_complete&&!s->bis_rx_acquisition_ok))return 0;
     enum v32_carrier_state states[128];v32_line_receive(&s->retrain_monitor,pcm,count);
     size_t n;while((n=v32_line_read(&s->retrain_monitor,states,128))!=0)
         for(size_t i=0;i<n;i++)if(v32_retrain_put(&s->retrain,states[i])){
@@ -933,6 +937,13 @@ void v32_session_receive(struct v32_session *s, const int16_t *pcm, size_t count
         startup_r3_receive(s,pcm,count);s->rx_samples+=count;return;
     }
     if(monitor_retrain(s,pcm,count)){s->rx_samples+=count;return;}
+    if(s->standard_startup&&s->bis_rx_acquisition_complete&&
+       !s->bis_rx_acquisition_ok){
+        s->bis_rx_reject_wait_symbols+=(unsigned)(count*2400/8000);
+        if(s->bis_rx_reject_wait_symbols>=V32BIS_RX_RETRAIN_WAIT_SYMBOLS)
+            v32_retrain_request(&s->retrain);
+        s->rx_samples+=count;return;
+    }
     begin_data(s);
     if(s->rx_data_ready&&s->startup.bis_selected){
         if(s->standard_startup&&s->bis_rx_candidate_active)
