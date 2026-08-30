@@ -313,6 +313,9 @@ The following has been observed on successful calls:
   incorrectly. On a later gap-free capture this moved E detection about 21
   seconds earlier, reduced the following B1 EVM from 107.68% to 19.36%, and
   recovered seven consecutive PPP frames with valid FCS;
+- a live call after installing that recovery reached `CONNECT 9600` with an
+  uncorrected exact E word and 31.85% B1 EVM. Its 2076 inbound RTP packets had
+  no sequence gaps, and all ten received 35-byte PPP/LCP frames had valid FCS;
 - V.14 deleted-stop-bit handling recovered the character immediately before a
   shared PPP flag. Offline replay of the captured PCMA then decoded ten
   consecutive 35-byte PPP LCP Configure-Request frames, all ten with a valid
