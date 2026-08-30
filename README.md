@@ -55,6 +55,9 @@ source code, binaries or VM images from other modem projects.
   and releases it only after the new E and marking transition completes
 - a closed slave PTY is probed with a 250 ms backoff, avoiding a `POLLHUP`
   busy-loop while no terminal program or `pppd` has the device open
+- idle channel polls wake at least once per second, so `SIGTERM` shuts down all
+  channel threads cleanly instead of making systemd wait for `TimeoutStopSec`
+  and kill the process; a four-channel process regression test covers this
 - V.42 LAPM/HDLC is connected to the V.32/V.32bis media path, including XID,
   SABME/UA, modulo-128 ARQ, T401 retries and REJ recovery
 - LAPM modulo-128 control fields encode and decode I, RR, RNR, REJ and SREJ

@@ -169,6 +169,12 @@ static void *channel_main(void *opaque) {
         struct pollfd fds[]={{sip_rx_fd,POLLIN,0},{rtp_fd,POLLIN,0},{pty_enabled?pty_fd:-1,POLLIN,0}};
         int timeout=call?(int)(next_tx>before_poll?next_tx-before_poll:0):pending?(int)(next_ring>before_poll?next_ring-before_poll:0):(dialing&&invite_retransmit)?(int)(next_invite>before_poll?next_invite-before_poll:0):-1;
         if(!pty_enabled){int probe_timeout=(int)(pty_probe-before_poll);if(timeout<0||probe_timeout<timeout)timeout=probe_timeout;}
+        /* The process-wide stop flag cannot wake an idle poll in every worker
+         * thread: SIGTERM is normally delivered to only one thread, and a
+         * closed peer of an AF_UNIX datagram socket need not report POLLHUP.
+         * Keep idle polling bounded so pthread_join cannot hold systemd until
+         * TimeoutStopSec and SIGKILL. */
+        if(timeout<0||timeout>1000)timeout=1000;
         int ready=poll(fds,ARRAY_SIZE(fds),timeout); if(ready<0){if(errno==EINTR)continue;perror("poll");break;}
         if((fds[2].revents&POLLHUP)&&!(fds[2].revents&POLLIN))pty_probe=now_ms()+250;
         if(fds[0].revents&POLLIN) {
