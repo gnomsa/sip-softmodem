@@ -187,6 +187,7 @@ static int startup_accept_r3(struct v32_session *s,unsigned scanner_index,
     s->remote_r3=1;
     s->startup_scanner_selected=(int)scanner_index;
     v32_e_rx_continue(&s->e_rx,&s->startup_scanner[scanner_index].rate);
+    v32_e_rx_expect(&s->e_rx,v32bis_e_word(selected,!!s->startup.bis_selected));
     s->e_rx_ready=1;
     return 1;
 }
@@ -864,6 +865,8 @@ static void consume_line(struct v32_session *s)
                     int selected = v32_startup_rate_word(&s->startup, word);
                     if (selected > 0) {
                         v32_e_rx_init(&s->e_rx, other(s->role), states[i]);
+                        v32_e_rx_expect(&s->e_rx,v32bis_e_word(
+                            s->startup.selected_rate,!!s->startup.bis_selected));
                         s->e_rx_ready = 1;
                     }
                 }

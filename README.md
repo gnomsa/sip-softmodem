@@ -308,6 +308,11 @@ The following has been observed on successful calls:
   sampling phases rather than nearest-sample aliases;
 - joint timing and four-state differential acquisition reduced B1 EVM from
   94.80% to 20.90% on a clean successful run;
+- the E detector can reconstruct the exact standard E word, scrambler state
+  and differential state when one of its eight carrier symbols is received
+  incorrectly. On a later gap-free capture this moved E detection about 21
+  seconds earlier, reduced the following B1 EVM from 107.68% to 19.36%, and
+  recovered seven consecutive PPP frames with valid FCS;
 - V.14 deleted-stop-bit handling recovered the character immediately before a
   shared PPP flag. Offline replay of the captured PCMA then decoded ten
   consecutive 35-byte PPP LCP Configure-Request frames, all ten with a valid
@@ -338,10 +343,11 @@ Two optional diagnostic tools make a physical call repeatable without placing
 another call. They are not built by the default target:
 
 ```sh
-make tools/pcap_pcma_extract tools/v32_pcma_replay
+make tools/pcap_pcma_extract tools/v32_pcma_replay tools/ppp_fcs_check
 editcap -F pcap capture.pcapng capture.pcap
 tools/pcap_pcma_extract capture.pcap 10000 inbound.pcma
 tools/v32_pcma_replay inbound.pcma decoded.bin 330 9600
+tools/ppp_fcs_check decoded.bin
 ```
 
 `pcap_pcma_extract` accepts classic pcap with Ethernet, raw IPv4, Linux cooked
@@ -352,6 +358,8 @@ standard V.32bis receiver used by the service and reports start-up state, rate,
 B1 timing/differential selection, acquisition status, retrain state, EVM and
 decoded byte count. Capture files and extracted payloads can contain private
 telephone and network metadata and should remain outside the repository.
+`ppp_fcs_check` removes RFC 1662 escaping and counts frames whose received
+CRC-16 has the standard `0xf0b8` good residue.
 
 ## Install as a service
 
