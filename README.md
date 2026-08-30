@@ -362,26 +362,26 @@ Physical acquisition is not yet reliable on every attempt. Another gap-free
 call had 111.94% B1 EVM and produced no valid data; none of the timing or
 differential candidates correlated with the known B1 sequence. B1 acquisition
 now requires no more than 60% EVM. A worse result is rejected before `CONNECT`
-or user data is reported. The receiver continues watching for the full
-256-symbol remote A/B retrain request before initiating its own request; this
-prevents both modems from transmitting A/B simultaneously instead of replying
-with C/D. If no remote request is detected during the 384-symbol arbitration
-window, the transmitter sends the standard in-band retrain request. The same
-A/B detector runs while waiting for remote E. If neither E nor A/B arrives
+or user data is reported. During data and the bounded acquisition waits, the
+receiver watches for the role-specific retrain trigger required by V.32bis:
+600/3000 Hz for a call-mode modem and 1800 Hz for an answer-mode modem, present
+for more than 128 symbol intervals. If no remote trigger is detected during
+the 384-symbol B1 arbitration window, the transmitter initiates retraining.
+The same detector runs while waiting for remote E. If neither E nor a retrain
+trigger arrives
 within 512 candidate words (about 1.7 seconds), the modem requests retraining
 instead of remaining in E until the SIP call times out. Retrain state, A/B and
 C/D counters, E-word count and the B1 arbitration timer are included in the
 service log. Waiting for remote R3 is bounded as well: the modem recognises an
-A/B request during second training and initiates its own retrain after 7200
-rate symbols (3 seconds) without R3. This avoids the previously observed
-27-second R2/R3 stall. After the C/D acknowledgement, a standard session
-restarts at the second `S/Sbar/TRN` receiver-conditioning sequence and then
-returns to rate negotiation; it no longer resets to R1 while transmitting
-silence. A live physical CSD call confirmed this receive-side path: after a
-rejected 106.26% EVM B1 acquisition, the peer acknowledged the local retrain,
-the modem entered the second `S/Sbar/TRN` interval and proceeded to R2/R3.
-That attempt did not receive the peer's subsequent R3 and therefore correctly
-did not report `CONNECT`. This follows the retrain procedure and
+incoming trigger during second training and initiates its own retrain after
+7200 rate symbols (3 seconds) without R3. This avoids the previously observed
+27-second R2/R3 stall. A standard retrain now returns to the role-specific
+start-up point: repeated carrier state A (AA) in call mode, or alternating A/C
+in answer mode. It then repeats synchronization, receiver conditioning and
+rate negotiation. An earlier shortened A/B-to-C/D implementation was accepted
+by the physical peer and reached a second `S/Sbar/TRN`, but the peer did not
+subsequently send R3; that live result motivated replacing the shortcut with
+the complete procedure. This follows the retrain procedure and
 receiver-conditioning segments in
 [ITU-T V.32 section 5](https://www.itu.int/rec/T-REC-V.32/en). This remains an
 equaliser/carrier-training problem

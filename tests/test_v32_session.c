@@ -69,31 +69,32 @@ static void standard_retrain_preempts_bis_data(void)
     s.bis_qam_ready=1;
     v32_retrain_request(&s.retrain);
     v32_session_generate(&s,pcm,160);
-    assert(s.retrain.state==V32_RETRAIN_REQUEST);
-    assert(s.retrain.tx_count==48);
+    assert(s.retrain.state==V32_RETRAIN_IDLE);
+    assert(s.startup.phase==V32_START_AA);
+    assert(s.tx_symbols==48);
 }
 
 static void rejected_b1_retrain_arbitration(int remote_request)
 {
     struct v32_session s;
     struct v32_line tx;
-    struct v32_retrain remote;
     v32bis_session_init(&s,V32_STD_CALL,9600);
     v32_session_start_standard(&s);
     s.startup.phase=V32_START_ONES_128;
     s.startup.selected_rate=9600;
     s.startup.bis_selected=1;
     s.remote_e=s.data_ready=s.rx_data_ready=1;
+    s.tx_marking=s.rx_marking=128;
     s.bis_rx_acquisition_complete=1;
     s.bis_rx_acquisition_ok=0;
     v32_line_init(&tx);
-    v32_retrain_init(&remote);
-    if(remote_request)v32_retrain_request(&remote);
     for(unsigned block_index=0;block_index<12&&
-        s.retrain.state==V32_RETRAIN_IDLE;block_index++){
+        s.retrain.state==V32_RETRAIN_IDLE&&
+        s.startup.phase==V32_START_ONES_128;block_index++){
         enum v32_carrier_state states[48];
         for(unsigned n=0;n<48;n++)
-            states[n]=remote_request?v32_retrain_next(&remote):V32_STATE_A;
+            states[n]=remote_request?((n&1)?V32_STATE_C:V32_STATE_A):
+                                     V32_STATE_A;
         assert(v32_line_write(&tx,states,48)==48);
         int16_t pcm[160],decoded[160];uint8_t law[160];
         v32_line_generate(&tx,pcm,160);
@@ -101,15 +102,15 @@ static void rejected_b1_retrain_arbitration(int remote_request)
         pcma_decode_buffer(law,decoded,160);
         v32_session_receive(&s,decoded,160);
     }
-    assert(s.retrain.state==
-           (remote_request?V32_RETRAIN_ACK:V32_RETRAIN_REQUEST));
+    if(remote_request){assert(s.retrain.state==V32_RETRAIN_IDLE);
+                       assert(s.startup.phase==V32_START_AA);}
+    else assert(s.retrain.state==V32_RETRAIN_REQUEST);
 }
 
 static void waiting_e_retrain_arbitration(int remote_request)
 {
     struct v32_session s;
     struct v32_line tx;
-    struct v32_retrain remote;
     v32bis_session_init(&s,V32_STD_CALL,9600);
     v32_session_start_standard(&s);
     s.startup.phase=V32_START_E;
@@ -118,14 +119,14 @@ static void waiting_e_retrain_arbitration(int remote_request)
     s.startup_scanner_selected=0;
     s.e_rx_ready=1;
     v32_line_init(&tx);
-    v32_retrain_init(&remote);
-    if(remote_request)v32_retrain_request(&remote);
     if(!remote_request)s.e_rx.words=V32_E_RETRAIN_WORDS;
     for(unsigned block_index=0;block_index<12&&
-        s.retrain.state==V32_RETRAIN_IDLE;block_index++){
+        s.retrain.state==V32_RETRAIN_IDLE&&
+        s.startup.phase==V32_START_E;block_index++){
         enum v32_carrier_state states[48];
         for(unsigned n=0;n<48;n++)
-            states[n]=remote_request?v32_retrain_next(&remote):V32_STATE_A;
+            states[n]=remote_request?((n&1)?V32_STATE_C:V32_STATE_A):
+                                     V32_STATE_A;
         assert(v32_line_write(&tx,states,48)==48);
         int16_t pcm[160],decoded[160];uint8_t law[160];
         v32_line_generate(&tx,pcm,160);
@@ -133,15 +134,15 @@ static void waiting_e_retrain_arbitration(int remote_request)
         pcma_decode_buffer(law,decoded,160);
         v32_session_receive(&s,decoded,160);
     }
-    assert(s.retrain.state==
-           (remote_request?V32_RETRAIN_ACK:V32_RETRAIN_REQUEST));
+    if(remote_request){assert(s.retrain.state==V32_RETRAIN_IDLE);
+                       assert(s.startup.phase==V32_START_AA);}
+    else assert(s.retrain.state==V32_RETRAIN_REQUEST);
 }
 
 static void waiting_r3_remote_retrain(void)
 {
     struct v32_session s;
     struct v32_line tx;
-    struct v32_retrain remote;
     v32bis_session_init(&s,V32_STD_CALL,9600);
     v32_session_start_standard(&s);
     s.startup.phase=V32_START_RATE_2;
@@ -149,12 +150,10 @@ static void waiting_r3_remote_retrain(void)
     s.startup.bis_selected=1;
     s.startup_scanner_selected=0;
     v32_line_init(&tx);
-    v32_retrain_init(&remote);
-    v32_retrain_request(&remote);
     for(unsigned block_index=0;block_index<12&&
-        s.retrain.state==V32_RETRAIN_IDLE;block_index++){
+        s.startup.phase==V32_START_RATE_2;block_index++){
         enum v32_carrier_state states[48];
-        for(unsigned n=0;n<48;n++)states[n]=v32_retrain_next(&remote);
+        for(unsigned n=0;n<48;n++)states[n]=(n&1)?V32_STATE_C:V32_STATE_A;
         assert(v32_line_write(&tx,states,48)==48);
         int16_t pcm[160],decoded[160];uint8_t law[160];
         v32_line_generate(&tx,pcm,160);
@@ -162,7 +161,8 @@ static void waiting_r3_remote_retrain(void)
         pcma_decode_buffer(law,decoded,160);
         v32_session_receive(&s,decoded,160);
     }
-    assert(s.retrain.state==V32_RETRAIN_ACK);
+    assert(s.retrain.state==V32_RETRAIN_IDLE);
+    assert(s.startup.phase==V32_START_AA);
 }
 
 static void waiting_r3_local_timeout(void)
@@ -182,36 +182,53 @@ static void waiting_r3_local_timeout(void)
     assert(s.retrain.state==V32_RETRAIN_REQUEST);
 }
 
-static void standard_retrain_restarts_second_training(void)
+static void standard_retrain_restarts_role_startup(enum v32_std_role role)
 {
-    struct v32_session s;struct v32_line tx;int16_t pcm[160];
-    v32bis_session_init(&s,V32_STD_CALL,9600);
+    struct v32_session s;int16_t pcm[160];
+    v32bis_session_init(&s,role,9600);
     v32_session_start_standard(&s);
-    s.startup.phase=V32_START_ONES_128;
+    s.retrain.state=V32_RETRAIN_REQUEST;
+    v32_session_generate(&s,pcm,160);
+    assert(s.retrain.state==V32_RETRAIN_IDLE);
+    assert(s.startup.phase==
+           (role==V32_STD_CALL?V32_START_AA:V32_START_AC));
+    assert(s.tx_symbols==48);
+    long energy=0;
+    for(unsigned n=0;n<160;n++)energy+=pcm[n]>=0?pcm[n]:-(long)pcm[n];
+    assert(energy>0);
+}
+
+static void standard_remote_retrain_trigger(enum v32_std_role role)
+{
+    struct v32_session s;struct v32_line tx;
+    v32bis_session_init(&s,role,9600);
+    v32_session_start_standard(&s);
+    s.startup.phase=V32_START_DATA;
     s.startup.selected_rate=9600;
     s.startup.bis_selected=1;
-    s.retrain.state=V32_RETRAIN_REQUEST;
+    s.remote_e=s.data_ready=s.rx_data_ready=1;
+    s.tx_marking=s.rx_marking=128;
     v32_line_init(&tx);
     for(unsigned block_index=0;block_index<4&&
-        s.retrain.state!=V32_RETRAIN_RESTART;block_index++){
+        s.startup.phase==V32_START_DATA;block_index++){
         enum v32_carrier_state states[48];
-        for(unsigned n=0;n<48;n++)states[n]=(n&1)?V32_STATE_D:V32_STATE_C;
+        for(unsigned n=0;n<48;n++)
+            states[n]=role==V32_STD_CALL?((n&1)?V32_STATE_C:V32_STATE_A):
+                                             V32_STATE_A;
         assert(v32_line_write(&tx,states,48)==48);
-        int16_t decoded[160];uint8_t law[160];
+        int16_t pcm[160],decoded[160];uint8_t law[160];
         v32_line_generate(&tx,pcm,160);
         pcma_encode_buffer(pcm,law,160);
         pcma_decode_buffer(law,decoded,160);
         v32_session_receive(&s,decoded,160);
     }
-    assert(s.retrain.state==V32_RETRAIN_RESTART);
-    assert(s.startup.phase==V32_START_ONES_128);
-    v32_session_generate(&s,pcm,160);
-    assert(s.retrain.state==V32_RETRAIN_IDLE);
-    assert(s.startup.phase==V32_START_TRAIN_2);
-    assert(s.startup_training_symbols==48);
-    long energy=0;
-    for(unsigned n=0;n<160;n++)energy+=pcm[n]>=0?pcm[n]:-(long)pcm[n];
-    assert(energy>0);
+    enum v32_startup_phase expected=
+        role==V32_STD_CALL?V32_START_AA:V32_START_AC;
+    if(s.startup.phase!=expected)
+        fprintf(stderr,"remote retrain role %d remained in phase %s, tone blocks %u\n",
+                role,v32_startup_phase_name(s.startup.phase),
+                s.retrain_tone_blocks);
+    assert(s.startup.phase==expected);
 }
 
 int main(void)
@@ -226,6 +243,9 @@ int main(void)
     waiting_e_retrain_arbitration(1);
     waiting_r3_remote_retrain();
     waiting_r3_local_timeout();
-    standard_retrain_restarts_second_training();
+    standard_retrain_restarts_role_startup(V32_STD_CALL);
+    standard_retrain_restarts_role_startup(V32_STD_ANSWER);
+    standard_remote_retrain_trigger(V32_STD_CALL);
+    standard_remote_retrain_trigger(V32_STD_ANSWER);
     return 0;
 }

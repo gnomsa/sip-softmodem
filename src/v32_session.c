@@ -56,6 +56,7 @@ static void media_init(struct v32_session *s,enum v32_std_role role,
     s->bis_rx_acquisition_complete=s->bis_rx_acquisition_ok=0;
     s->bis_rx_retrain_ab_at_failure=0;
     s->bis_rx_reject_wait_symbols=0;
+    s->retrain_tone_blocks=0;
     v32_line_init(&s->line);v32_line_init(&s->retrain_monitor);
     v32_qam_init(&s->qam);v32_training_init(&s->training,role);
     if(rates&(V32_RATE_7200|V32_RATE_12000|V32_RATE_14400))v32bis_startup_init(&s->startup,role,rates);
@@ -63,27 +64,11 @@ static void media_init(struct v32_session *s,enum v32_std_role role,
     v32_retrain_init(&s->retrain);s->startup.phase=V32_START_RATE_1;
 }
 
-static void standard_retrain_restart(struct v32_session *s,unsigned rates)
+static void standard_retrain_begin(struct v32_session *s,unsigned rates)
 {
     enum v32_std_role role=s->role;
     media_init(s,role,rates);
-    s->standard_startup=1;
-    s->startup.selected_rate=v32_highest_rate(rates);
-    s->startup.bis_selected=!!(rates&
-        (V32_RATE_7200|V32_RATE_12000|V32_RATE_14400));
-    s->startup.local_rate_word=s->startup.bis_selected?
-        v32bis_rate_word(rates,1):
-        v32_std_rate_word(!!(rates&V32_RATE_4800),
-                          !!(rates&V32_RATE_9600),0);
-    s->startup.phase=V32_START_TRAIN_2;
-    s->startup_training_symbols=0;
-    s->startup_rate_symbols=0;
-    s->tx_symbols=s->rx_symbols=0;
-    s->startup_scanner_selected=-1;
-    v32_training_init(&s->training,role);
-    startup_scanners_init(s);
-    v32_line_init(&s->line);
-    v32_line_set_pulse_shaped(&s->line,1);
+    v32_session_start_standard(s);
 }
 
 void v32_session_init(struct v32_session *s, enum v32_std_role role,
@@ -762,10 +747,13 @@ static void receive_bis_timing_candidates(struct v32_session *s,
 
 void v32_session_generate(struct v32_session *s, int16_t *pcm, size_t count)
 {
+    if (s->standard_startup && s->retrain.state != V32_RETRAIN_IDLE) {
+        unsigned rates=s->startup.allowed_rates;
+        standard_retrain_begin(s,rates);
+    }
     if (s->retrain.state == V32_RETRAIN_RESTART) {
         unsigned rates=s->startup.allowed_rates;
-        if(s->standard_startup)standard_retrain_restart(s,rates);
-        else media_init(s,s->role,rates);
+        media_init(s,s->role,rates);
     }
     if (s->retrain.state == V32_RETRAIN_REQUEST ||
         s->retrain.state == V32_RETRAIN_ACK) {
@@ -862,6 +850,30 @@ static int monitor_retrain(struct v32_session *s,const int16_t *pcm,size_t count
     if(!v32_session_connected(s)&&s->retrain.state==V32_RETRAIN_IDLE&&
        !s->bis_rx_candidate_active&&!waiting_e&&!waiting_r3&&
        !(s->bis_rx_acquisition_complete&&!s->bis_rx_acquisition_ok))return 0;
+    if(s->standard_startup){
+        const double frequencies[3]={600.0,1800.0,3000.0};
+        unsigned first=s->role==V32_STD_CALL?0:1;
+        unsigned last=s->role==V32_STD_CALL?2:1;
+        double energy=0.0,best=0.0;
+        for(size_t k=0;k<count;k++){double x=pcm[k];energy+=x*x;}
+        for(unsigned f=first;f<=last;f+=(last==first?1:2)){
+            double i=0.0,q=0.0;
+            for(size_t k=0;k<count;k++){
+                double p=2.0*M_PI*frequencies[f]*(double)k/8000.0;
+                i+=(double)pcm[k]*cos(p);q-=(double)pcm[k]*sin(p);
+            }
+            double power=i*i+q*q;if(power>best)best=power;
+            if(last==first)break;
+        }
+        if(energy>=1.0&&best>=0.10*energy*(double)count){
+            if(++s->retrain_tone_blocks>=3){
+                unsigned rates=s->startup.allowed_rates;
+                standard_retrain_begin(s,rates);
+                return 1;
+            }
+        }else s->retrain_tone_blocks=0;
+        return s->retrain.state!=V32_RETRAIN_IDLE;
+    }
     enum v32_carrier_state states[128];v32_line_receive(&s->retrain_monitor,pcm,count);
     size_t n;while((n=v32_line_read(&s->retrain_monitor,states,128))!=0)
         for(size_t i=0;i<n;i++)if(v32_retrain_put(&s->retrain,states[i])){

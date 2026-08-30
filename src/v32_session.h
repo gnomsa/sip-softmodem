@@ -95,6 +95,7 @@ struct v32_session {
     unsigned startup_reversals, startup_tone_blocks, startup_tone_misses;
     unsigned startup_echo_symbols, startup_training_symbols;
     unsigned startup_rate_symbols;
+    unsigned retrain_tone_blocks;
     double startup_tone_i, startup_tone_q;
     int startup_tone_valid, startup_tone_bin, startup_scanner_selected;
     struct v32_startup_scanner startup_scanner[V32_STARTUP_SCANNERS];
