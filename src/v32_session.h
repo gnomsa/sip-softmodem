@@ -27,6 +27,7 @@
      V32BIS_RX_ALIGNMENTS)
 #define V32BIS_RX_MAX_B1_EVM 0.60
 #define V32BIS_RX_RETRAIN_WAIT_SYMBOLS 384
+#define V32_E_RETRAIN_WORDS 512
 
 struct v32_startup_scanner {
     struct v32_line line;

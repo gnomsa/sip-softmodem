@@ -827,8 +827,10 @@ void v32_session_media_gap(struct v32_session *s)
 
 static int monitor_retrain(struct v32_session *s,const int16_t *pcm,size_t count)
 {
+    int waiting_e=s->standard_startup&&s->startup.phase==V32_START_E&&
+                  !s->remote_e;
     if(!v32_session_connected(s)&&s->retrain.state==V32_RETRAIN_IDLE&&
-       !s->bis_rx_candidate_active&&
+       !s->bis_rx_candidate_active&&!waiting_e&&
        !(s->bis_rx_acquisition_complete&&!s->bis_rx_acquisition_ok))return 0;
     enum v32_carrier_state states[128];v32_line_receive(&s->retrain_monitor,pcm,count);
     size_t n;while((n=v32_line_read(&s->retrain_monitor,states,128))!=0)
@@ -936,7 +938,11 @@ void v32_session_receive(struct v32_session *s, const int16_t *pcm, size_t count
     }
     if(s->standard_startup&&s->startup.phase==V32_START_E&&
        !s->remote_e&&s->startup_scanner_selected>=0){
-        startup_r3_receive(s,pcm,count);s->rx_samples+=count;return;
+        if(monitor_retrain(s,pcm,count)){s->rx_samples+=count;return;}
+        startup_r3_receive(s,pcm,count);
+        if(!s->remote_e&&s->e_rx.words>=V32_E_RETRAIN_WORDS)
+            v32_retrain_request(&s->retrain);
+        s->rx_samples+=count;return;
     }
     if(monitor_retrain(s,pcm,count)){s->rx_samples+=count;return;}
     if(s->standard_startup&&s->bis_rx_acquisition_complete&&

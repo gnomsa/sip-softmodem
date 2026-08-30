@@ -105,6 +105,38 @@ static void rejected_b1_retrain_arbitration(int remote_request)
            (remote_request?V32_RETRAIN_ACK:V32_RETRAIN_REQUEST));
 }
 
+static void waiting_e_retrain_arbitration(int remote_request)
+{
+    struct v32_session s;
+    struct v32_line tx;
+    struct v32_retrain remote;
+    v32bis_session_init(&s,V32_STD_CALL,9600);
+    v32_session_start_standard(&s);
+    s.startup.phase=V32_START_E;
+    s.startup.selected_rate=9600;
+    s.startup.bis_selected=1;
+    s.startup_scanner_selected=0;
+    s.e_rx_ready=1;
+    v32_line_init(&tx);
+    v32_retrain_init(&remote);
+    if(remote_request)v32_retrain_request(&remote);
+    if(!remote_request)s.e_rx.words=V32_E_RETRAIN_WORDS;
+    for(unsigned block_index=0;block_index<12&&
+        s.retrain.state==V32_RETRAIN_IDLE;block_index++){
+        enum v32_carrier_state states[48];
+        for(unsigned n=0;n<48;n++)
+            states[n]=remote_request?v32_retrain_next(&remote):V32_STATE_A;
+        assert(v32_line_write(&tx,states,48)==48);
+        int16_t pcm[160],decoded[160];uint8_t law[160];
+        v32_line_generate(&tx,pcm,160);
+        pcma_encode_buffer(pcm,law,160);
+        pcma_decode_buffer(law,decoded,160);
+        v32_session_receive(&s,decoded,160);
+    }
+    assert(s.retrain.state==
+           (remote_request?V32_RETRAIN_ACK:V32_RETRAIN_REQUEST));
+}
+
 int main(void)
 {
     run(0, 4800);
@@ -113,5 +145,7 @@ int main(void)
     standard_retrain_preempts_bis_data();
     rejected_b1_retrain_arbitration(0);
     rejected_b1_retrain_arbitration(1);
+    waiting_e_retrain_arbitration(0);
+    waiting_e_retrain_arbitration(1);
     return 0;
 }

@@ -366,7 +366,12 @@ or user data is reported. The receiver continues watching for the full
 256-symbol remote A/B retrain request before initiating its own request; this
 prevents both modems from transmitting A/B simultaneously instead of replying
 with C/D. If no remote request is detected during the 384-symbol arbitration
-window, the transmitter sends the standard in-band retrain request. This
+window, the transmitter sends the standard in-band retrain request. The same
+A/B detector runs while waiting for remote E. If neither E nor A/B arrives
+within 512 candidate words (about 1.7 seconds), the modem requests retraining
+instead of remaining in E until the SIP call times out. Retrain state, A/B and
+C/D counters, E-word count and the B1 arbitration timer are included in the
+service log. This
 remains an equaliser/carrier-training problem
 rather than a SIP or packet-loss problem. For meaningful measurements, avoid
 simultaneous disk/network-heavy jobs, reject runs containing RTP gaps, and
