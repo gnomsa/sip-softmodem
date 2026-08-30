@@ -6,6 +6,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 #define MASK 1023u
+#define FRACTIONAL_MASK 255u
 static unsigned labels_for_rate(int rate){return rate==7200?16:rate==9600?32:rate==12000?64:rate==14400?128:0;}
 int v32bis_qam_init(struct v32bis_qam*q,int rate){unsigned labels=labels_for_rate(rate);if(!q||!labels)return-1;memset(q,0,sizeof *q);q->rate=rate;double energy=0;for(unsigned n=0;n<labels;n++){struct v32bis_point p;if(v32bis_map_point(rate,n,&p)<0)return-1;energy+=p.i*p.i+p.q*p.q;}q->gain=9000.0/sqrt(energy/labels);return 0;}
 void v32bis_qam_set_pulse_shaped(struct v32bis_qam*q,int enabled)
@@ -16,9 +17,25 @@ void v32bis_qam_set_pulse_shaped(struct v32bis_qam*q,int enabled)
         q->rx_last_symbol=INT64_MIN;
     }
 }
+void v32bis_qam_enable_fractional_output(struct v32bis_qam*q,int enabled)
+{
+    q->rx_fractional_enabled=enabled!=0;
+    q->rx_fractional_head=q->rx_fractional_tail=0;
+    q->rx_last_half_tick=INT64_MIN;
+}
 size_t v32bis_qam_write(struct v32bis_qam*q,const uint8_t*s,size_t n){size_t z=0;unsigned labels=labels_for_rate(q->rate);while(z<n&&((q->tt+1)&MASK)!=q->th){if(s[z]>=labels)break;struct v32bis_point p;if(v32bis_map_point(q->rate,s[z],&p)<0)break;q->tx[q->tt]=(struct v32bis_sample){p.i,p.q};z++;q->tt=(q->tt+1)&MASK;}return z;}
 size_t v32bis_qam_write_carriers(struct v32bis_qam*q,const uint8_t*s,size_t n){static const double xy[4][2]={{1,1},{-1,1},{-1,-1},{1,-1}};size_t z=0;while(z<n&&((q->tt+1)&MASK)!=q->th){unsigned state=s[z++]&3u;q->tx[q->tt]=(struct v32bis_sample){xy[state][0]*8500.0/q->gain,xy[state][1]*8500.0/q->gain};q->tt=(q->tt+1)&MASK;}return z;}
 size_t v32bis_qam_read(struct v32bis_qam*q,struct v32bis_sample*s,size_t n){size_t z=0;while(z<n&&q->rh!=q->rt){s[z++]=q->rx[q->rh];q->rh=(q->rh+1)&MASK;}return z;}
+size_t v32bis_qam_read_fractional(struct v32bis_qam*q,
+                                  struct v32bis_sample*s,size_t n)
+{
+    size_t z=0;
+    while(z<n&&q->rx_fractional_head!=q->rx_fractional_tail){
+        s[z++]=q->rx_fractional[q->rx_fractional_head];
+        q->rx_fractional_head=(q->rx_fractional_head+1)&FRACTIONAL_MASK;
+    }
+    return z;
+}
 static double rrc(double t)
 {
     const double beta=0.25;
@@ -84,6 +101,7 @@ static void receive_shaped_selected(struct v32bis_qam*q,const int16_t*in,size_t 
             q->rx_previous_i=i;q->rx_previous_q=v;
             q->rx_previous_position=symbol_position;
             q->rx_last_symbol=(int64_t)floor(symbol_position);
+            q->rx_last_half_tick=(int64_t)floor(symbol_position*2.0);
             q->rx_interpolator_ready=1;continue;
         }
         int64_t symbol=q->rx_last_symbol+1;
@@ -101,6 +119,28 @@ static void receive_shaped_selected(struct v32bis_qam*q,const int16_t*in,size_t 
                 q->rt=next;
             }
             q->rx_last_symbol=symbol;
+        }
+        if(q->rx_fractional_enabled){
+            int64_t tick=q->rx_last_half_tick+1;
+            double target=(double)tick*0.5;
+            while(target<=symbol_position){
+                double span=symbol_position-q->rx_previous_position;
+                double fraction=span>1e-12?
+                    (target-q->rx_previous_position)/span:1.0;
+                if(fraction<0.0)fraction=0.0;
+                if(fraction>1.0)fraction=1.0;
+                size_t next=(q->rx_fractional_tail+1)&FRACTIONAL_MASK;
+                if(next!=q->rx_fractional_head){
+                    double si=q->rx_previous_i+(i-q->rx_previous_i)*fraction;
+                    double sq=q->rx_previous_q+(v-q->rx_previous_q)*fraction;
+                    q->rx_fractional[q->rx_fractional_tail]=
+                        (struct v32bis_sample){si/q->gain,sq/q->gain};
+                    q->rx_fractional_tail=next;
+                }
+                q->rx_last_half_tick=tick;
+                tick++;
+                target=(double)tick*0.5;
+            }
         }
         q->rx_previous_i=i;q->rx_previous_q=v;
         q->rx_previous_position=symbol_position;
@@ -122,8 +162,14 @@ void v32bis_qam_copy_receiver(struct v32bis_qam*dst,
     memcpy(dst->rx_fir_q,src->rx_fir_q,sizeof dst->rx_fir_q);
     dst->rx_fir_at=src->rx_fir_at;dst->rx_fir_count=src->rx_fir_count;
     dst->rx_last_symbol=src->rx_last_symbol;
+    memcpy(dst->rx_fractional,src->rx_fractional,
+           sizeof dst->rx_fractional);
+    dst->rx_fractional_head=src->rx_fractional_head;
+    dst->rx_fractional_tail=src->rx_fractional_tail;
+    dst->rx_last_half_tick=src->rx_last_half_tick;
     dst->rx_previous_i=src->rx_previous_i;
     dst->rx_previous_q=src->rx_previous_q;
     dst->rx_previous_position=src->rx_previous_position;
     dst->rx_interpolator_ready=src->rx_interpolator_ready;
+    dst->rx_fractional_enabled=src->rx_fractional_enabled;
 }

@@ -15,16 +15,22 @@ struct v32bis_qam {
     double rx_fir_i[64],rx_fir_q[64];
     unsigned rx_fir_at,rx_fir_count;
     int64_t rx_last_symbol;
+    struct v32bis_sample rx_fractional[256];
+    size_t rx_fractional_head,rx_fractional_tail;
+    int64_t rx_last_half_tick;
     double rx_previous_i,rx_previous_q,rx_previous_position;
-    int rx_interpolator_ready;
+    int rx_interpolator_ready,rx_fractional_enabled;
     int pulse_shaped;
 };
 int v32bis_qam_init(struct v32bis_qam*q,int rate);
 void v32bis_qam_set_pulse_shaped(struct v32bis_qam*q,int enabled);
+void v32bis_qam_enable_fractional_output(struct v32bis_qam*q,int enabled);
 size_t v32bis_qam_write(struct v32bis_qam*q,const uint8_t*labels,size_t count);
 size_t v32bis_qam_write_carriers(struct v32bis_qam*q,const uint8_t*states,
                                  size_t count);
 size_t v32bis_qam_read(struct v32bis_qam*q,struct v32bis_sample*points,size_t capacity);
+size_t v32bis_qam_read_fractional(struct v32bis_qam*q,
+                                  struct v32bis_sample*points,size_t capacity);
 void v32bis_qam_generate(struct v32bis_qam*q,int16_t*out,size_t count);
 void v32bis_qam_receive(struct v32bis_qam*q,const int16_t*in,size_t count);
 void v32bis_qam_copy_receiver(struct v32bis_qam*dst,
