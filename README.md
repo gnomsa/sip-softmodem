@@ -315,6 +315,15 @@ The following has been observed on successful calls:
   31.85% to 27.44%, and retained all ten valid PPP frames;
 - joint timing and four-state differential acquisition reduced B1 EVM from
   94.80% to 20.90% on a clean successful run;
+- B1 diagnostics report observed-to-expected RMS input level and the number of
+  known symbols used. A failed 106.64% EVM capture had 1.804x input level,
+  while two successful captures measured 1.718x and 1.793x, proving that its
+  post-E carrier was present rather than silent;
+- carrier drift is estimated after equalisation and reported as a diagnostic,
+  but is not applied as an abrupt phase step after B1. Offline application of
+  even small 2.27 Hz and 1.27 Hz estimates corrupted every PPP FCS, whereas
+  leaving the trained decision-directed equaliser continuous preserved 7/7
+  and 10/11 valid frames respectively. A continuous PLL remains future work;
 - the E detector can reconstruct the exact standard E word, scrambler state
   and differential state when one of its eight carrier symbols is received
   incorrectly. On a later gap-free capture this moved E detection about 21

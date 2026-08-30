@@ -316,13 +316,17 @@ static void *channel_main(void *opaque) {
             if(modem32std.physical.bis_rx_acquisition_complete&&
                v32_log_b1<0){
                 v32_log_b1=modem32std.physical.bis_rx_acquisition_ok;
-                fprintf(stderr,"V.32bis B1 acquisition %s, h %.5f%+.5fi EVM %.2f%%\n",
+                fprintf(stderr,"V.32bis B1 acquisition %s, h %.5f%+.5fi EVM %.2f%% input %.2fx/%u\n",
                         v32_log_b1?"accepted":"rejected",
                         modem32std.physical.bis_rx_eq.h_re,
                         modem32std.physical.bis_rx_eq.h_im,
                         modem32std.physical.bis_rx_eq.power>0.0?
                         100.0*sqrt(modem32std.physical.bis_rx_eq.error/
-                                   modem32std.physical.bis_rx_eq.power):0.0);
+                                   modem32std.physical.bis_rx_eq.power):0.0,
+                        modem32std.physical.bis_rx_eq.power>0.0?
+                        sqrt(modem32std.physical.bis_rx_eq.observed_power/
+                             modem32std.physical.bis_rx_eq.power):0.0,
+                        modem32std.physical.bis_rx_eq.known_points);
                 fprintf(stderr,"V.32bis E accepted after %u words, corrected carrier symbols %u\n",
                         modem32std.physical.e_rx.words,
                         modem32std.physical.e_rx.corrected_symbols);
@@ -346,7 +350,7 @@ static void *channel_main(void *opaque) {
                         modem32std.physical.tx_marking,
                         modem32std.physical.rx_marking,v42_log_state);
                 if(physical&&modem32std.physical.startup.bis_selected){
-                    fprintf(stderr,"V.32bis carrier offset %.3f Hz confidence %.3f\n",
+                    fprintf(stderr,"V.32bis estimated carrier offset %.3f Hz confidence %.3f (diagnostic only)\n",
                             modem32std.physical.bis_rx_eq.carrier_step*
                             2400.0/(2.0*M_PI),
                             modem32std.physical.bis_rx_eq.carrier_confidence);

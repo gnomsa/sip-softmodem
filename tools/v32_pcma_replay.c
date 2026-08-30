@@ -68,11 +68,13 @@ int main(int argc,char **argv)
     double carrier_offset=atan2(
         session.bis_rx_eq.carrier_correlation_q,
         session.bis_rx_eq.carrier_correlation_i)*2400.0/(2.0*M_PI);
+    double input_ratio=session.bis_rx_eq.power>0.0?sqrt(
+        session.bis_rx_eq.observed_power/session.bis_rx_eq.power):0.0;
     fprintf(stdout,
         "start=%u blocks=%zu phase=%s rate=%d bis=%d E=%d connected=%d "
         "mark=%u/%u skip=%u timing=%d previous=%u alignment=%+d acquisition=%d/%d "
         "retrain=%d ab=%u cd=%u reject-ab=%u wait=%u EVM=%.2f%% "
-        "carrier=%+.3fHz/%.3f bytes=%zu\n",
+        "carrier=%+.3fHz/%.3f input=%.3fx/%u bytes=%zu\n",
         start,blocks,v32_startup_phase_name(session.startup.phase),
         v32_session_rate(&session),session.startup.bis_selected,
         session.remote_e,v32_session_connected(&session),session.tx_marking,
@@ -83,6 +85,6 @@ int main(int argc,char **argv)
         session.retrain.state,session.retrain.ab_count,
         session.retrain.cd_count,session.bis_rx_retrain_ab_at_failure,
         session.bis_rx_reject_wait_symbols,evm,carrier_offset,
-        carrier_confidence,total);
+        carrier_confidence,input_ratio,session.bis_rx_eq.known_points,total);
     return 0;
 }

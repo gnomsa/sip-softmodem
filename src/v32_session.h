@@ -40,7 +40,8 @@ struct v32bis_rx_equalizer {
     struct v32bis_sample history[9],weights[9];
     unsigned history_count,history_at;
     int ready;
-    double error,power,h_re,h_im;
+    double error,power,observed_power,h_re,h_im;
+    unsigned known_points;
     double carrier_cross_i,carrier_cross_q;
     double carrier_correlation_i,carrier_correlation_q;
     unsigned phase_count;

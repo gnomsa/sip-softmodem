@@ -563,23 +563,6 @@ static int equalize_bis_point(struct v32bis_rx_equalizer *eq,
     eq->history_at=(eq->history_at+1u)%TAPS;
     eq->history[eq->history_at]=observed;
     if(eq->history_count<TAPS)eq->history_count++;
-    if(known&&!eq->carrier_enabled&&eq->history_count==TAPS){
-        double cross_i=raw.i*desired.i+raw.q*desired.q;
-        double cross_q=raw.q*desired.i-raw.i*desired.q;
-        if(eq->phase_count){
-            double ci=cross_i*eq->carrier_cross_i+
-                      cross_q*eq->carrier_cross_q;
-            double cq=cross_q*eq->carrier_cross_i-
-                      cross_i*eq->carrier_cross_q;
-            double magnitude=hypot(ci,cq);
-            if(magnitude>1e-9){
-                eq->carrier_correlation_i+=ci/magnitude;
-                eq->carrier_correlation_q+=cq/magnitude;
-            }
-        }
-        eq->carrier_cross_i=cross_i;eq->carrier_cross_q=cross_q;
-        eq->phase_count++;
-    }
     if(!eq->ready){
         unsigned at=(eq->history_at+TAPS-DELAY)%TAPS;
         struct v32bis_sample input=eq->history[at];
@@ -608,10 +591,29 @@ static int equalize_bis_point(struct v32bis_rx_equalizer *eq,
         if(power<1e-9||distance>0.49*power){*result=output;return 1;}
         desired=(struct v32bis_sample){decision.i,decision.q};
     }
+    if(known&&!eq->carrier_enabled&&eq->history_count==TAPS){
+        double cross_i=output.i*desired.i+output.q*desired.q;
+        double cross_q=output.q*desired.i-output.i*desired.q;
+        if(eq->phase_count){
+            double ci=cross_i*eq->carrier_cross_i+
+                      cross_q*eq->carrier_cross_q;
+            double cq=cross_q*eq->carrier_cross_i-
+                      cross_i*eq->carrier_cross_q;
+            double magnitude=hypot(ci,cq);
+            if(magnitude>1e-9){
+                eq->carrier_correlation_i+=ci/magnitude;
+                eq->carrier_correlation_q+=cq/magnitude;
+            }
+        }
+        eq->carrier_cross_i=cross_i;eq->carrier_cross_q=cross_q;
+        eq->phase_count++;
+    }
     double er=desired.i-output.i,error_q=desired.q-output.q;
     if(known&&eq->history_count==TAPS){
         eq->error+=er*er+error_q*error_q;
         eq->power+=desired.i*desired.i+desired.q*desired.q;
+        eq->observed_power+=raw.i*raw.i+raw.q*raw.q;
+        eq->known_points++;
     }
     double mu=known?0.45:0.008;
     for(unsigned tap=0;tap<TAPS;tap++){
@@ -715,7 +717,7 @@ static void receive_bis_timing_candidates(struct v32_session *s,
         if(eq->carrier_confidence<0.60||
            fabs(eq->carrier_step)>2.0*M_PI*7.0/2400.0)
             eq->carrier_step=0.0;
-        eq->carrier_phase=eq->carrier_step;eq->carrier_enabled=1;
+        eq->carrier_phase=0.0;eq->carrier_enabled=0;
     }
     memcpy(s->bis_rx_expected,s->bis_rx_candidate_expected[best_previous],
            sizeof s->bis_rx_expected);
