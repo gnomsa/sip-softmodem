@@ -374,7 +374,11 @@ C/D counters, E-word count and the B1 arbitration timer are included in the
 service log. Waiting for remote R3 is bounded as well: the modem recognises an
 A/B request during second training and initiates its own retrain after 7200
 rate symbols (3 seconds) without R3. This avoids the previously observed
-27-second R2/R3 stall. This
+27-second R2/R3 stall. After the C/D acknowledgement, a standard session
+restarts at the second `S/Sbar/TRN` receiver-conditioning sequence and then
+returns to rate negotiation; it no longer resets to R1 while transmitting
+silence. This follows the retrain procedure and receiver-conditioning segments
+in [ITU-T V.32 section 5](https://www.itu.int/rec/T-REC-V.32/en). This
 remains an equaliser/carrier-training problem
 rather than a SIP or packet-loss problem. For meaningful measurements, avoid
 simultaneous disk/network-heavy jobs, reject runs containing RTP gaps, and

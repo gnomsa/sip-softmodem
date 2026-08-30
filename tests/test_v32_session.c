@@ -182,6 +182,21 @@ static void waiting_r3_local_timeout(void)
     assert(s.retrain.state==V32_RETRAIN_REQUEST);
 }
 
+static void standard_retrain_restarts_second_training(void)
+{
+    struct v32_session s;int16_t pcm[160];
+    v32bis_session_init(&s,V32_STD_CALL,9600);
+    v32_session_start_standard(&s);
+    s.retrain.state=V32_RETRAIN_RESTART;
+    v32_session_generate(&s,pcm,160);
+    assert(s.retrain.state==V32_RETRAIN_IDLE);
+    assert(s.startup.phase==V32_START_TRAIN_2);
+    assert(s.startup_training_symbols==48);
+    long energy=0;
+    for(unsigned n=0;n<160;n++)energy+=pcm[n]>=0?pcm[n]:-(long)pcm[n];
+    assert(energy>0);
+}
+
 int main(void)
 {
     run(0, 4800);
@@ -194,5 +209,6 @@ int main(void)
     waiting_e_retrain_arbitration(1);
     waiting_r3_remote_retrain();
     waiting_r3_local_timeout();
+    standard_retrain_restarts_second_training();
     return 0;
 }

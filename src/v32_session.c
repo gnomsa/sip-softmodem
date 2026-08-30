@@ -63,6 +63,29 @@ static void media_init(struct v32_session *s,enum v32_std_role role,
     v32_retrain_init(&s->retrain);s->startup.phase=V32_START_RATE_1;
 }
 
+static void standard_retrain_restart(struct v32_session *s,unsigned rates)
+{
+    enum v32_std_role role=s->role;
+    media_init(s,role,rates);
+    s->standard_startup=1;
+    s->startup.selected_rate=v32_highest_rate(rates);
+    s->startup.bis_selected=!!(rates&
+        (V32_RATE_7200|V32_RATE_12000|V32_RATE_14400));
+    s->startup.local_rate_word=s->startup.bis_selected?
+        v32bis_rate_word(rates,1):
+        v32_std_rate_word(!!(rates&V32_RATE_4800),
+                          !!(rates&V32_RATE_9600),0);
+    s->startup.phase=V32_START_TRAIN_2;
+    s->startup_training_symbols=0;
+    s->startup_rate_symbols=0;
+    s->tx_symbols=s->rx_symbols=0;
+    s->startup_scanner_selected=-1;
+    v32_training_init(&s->training,role);
+    startup_scanners_init(s);
+    v32_line_init(&s->line);
+    v32_line_set_pulse_shaped(&s->line,1);
+}
+
 void v32_session_init(struct v32_session *s, enum v32_std_role role,
                       int allow_4800, int allow_9600)
 {
@@ -740,7 +763,9 @@ static void receive_bis_timing_candidates(struct v32_session *s,
 void v32_session_generate(struct v32_session *s, int16_t *pcm, size_t count)
 {
     if (s->retrain.state == V32_RETRAIN_RESTART) {
-        unsigned rates=s->startup.allowed_rates;media_init(s,s->role,rates);
+        unsigned rates=s->startup.allowed_rates;
+        if(s->standard_startup)standard_retrain_restart(s,rates);
+        else media_init(s,s->role,rates);
     }
     if (s->retrain.state == V32_RETRAIN_REQUEST ||
         s->retrain.state == V32_RETRAIN_ACK) {
