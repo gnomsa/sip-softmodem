@@ -376,7 +376,10 @@ the old PTY master and atomically replaces the public symlink with a fresh PTY.
 This gives programs such as `pppd` an immediate hangup/EOF instead of allowing
 their post-disconnect PPP bytes to enter AT command mode and be echoed back as
 a false loopback. A terminal program should reopen the same public symlink for
-the next call.
+the next call. If SIP disconnects before `CONNECT`, the channel instead reports
+`NO CARRIER` without replacing the PTY, so an `ATD` terminal or `chat` script
+can fail immediately while retaining the same open descriptor. Repeated RTP
+gaps still request retraining, but the diagnostic is logged only once per call.
 
 ## Install as a service
 
