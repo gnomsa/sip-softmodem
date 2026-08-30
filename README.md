@@ -407,6 +407,9 @@ tools/v32_pcma_replay inbound.pcma decoded.bin 330 9600
 tools/ppp_fcs_check decoded.bin
 ```
 
+Append `--trace` after the rate to print every reconstructed start-up/retrain
+phase transition with its input block number and relative time.
+
 `pcap_pcma_extract` accepts classic pcap with Ethernet, raw IPv4, Linux cooked
 v1 or Linux cooked v2 encapsulation. It selects RTP/PCMA payload type 8 by UDP
 destination port and reports packet count, sequence gaps and non-160 timestamp

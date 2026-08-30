@@ -20,14 +20,15 @@ static int unsigned_arg(const char *text,unsigned *value)
 
 int main(int argc,char **argv)
 {
-    if(argc<3||argc>5){
-        fprintf(stderr,"usage: %s INPUT.pcma OUTPUT.bin [START_BLOCK [RATE]]\n",
+    if(argc<3||argc>6){
+        fprintf(stderr,"usage: %s INPUT.pcma OUTPUT.bin [START_BLOCK [RATE [--trace]]]\n",
                 argv[0]);
         return 2;
     }
     unsigned start=330,rate=9600;
     if((argc>=4&&unsigned_arg(argv[3],&start)<0)||
        (argc>=5&&unsigned_arg(argv[4],&rate)<0)||
+       (argc==6&&strcmp(argv[5],"--trace"))||
        (rate!=7200&&rate!=9600&&rate!=12000&&rate!=14400)){
         fprintf(stderr,"invalid start block or V.32bis rate\n");return 2;
     }
@@ -43,12 +44,26 @@ int main(int argc,char **argv)
     struct v32_session session;
     v32bis_session_init(&session,V32_STD_CALL,(int)rate);
     v32_session_start_standard(&session);
+    int trace=argc==6;
+    enum v32_startup_phase previous_phase=session.startup.phase;
+    enum v32_retrain_state previous_retrain=session.retrain.state;
     uint8_t law[160],bytes[512];int16_t receive[160],transmit[160];
     size_t total=0,blocks=0;
     while(fread(law,1,sizeof law,input)==sizeof law){
         pcma_decode_buffer(law,receive,160);
         v32_session_generate(&session,transmit,160);
         v32_session_receive(&session,receive,160);
+        if(trace&&(session.startup.phase!=previous_phase||
+                   session.retrain.state!=previous_retrain)){
+            fprintf(stderr,"block=%zu time=%.2fs phase=%s retrain=%d rate=%d E=%d\n",
+                    (size_t)start+blocks,
+                    (double)blocks*0.020,
+                    v32_startup_phase_name(session.startup.phase),
+                    session.retrain.state,v32_session_rate(&session),
+                    session.remote_e);
+            previous_phase=session.startup.phase;
+            previous_retrain=session.retrain.state;
+        }
         size_t count=v32_session_read(&session,bytes,sizeof bytes);
         if(count&&fwrite(bytes,1,count,output)!=count){
             fprintf(stderr,"write failed: %s\n",strerror(errno));return 1;
