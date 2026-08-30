@@ -324,6 +324,10 @@ The following has been observed on successful calls:
   peer decoded its LCP requests and returned Configure-Reject/Configure-Nak,
   and the physical peer received those replies and changed its next request.
   IPCP was not reached because that endpoint requires CHAP-MD5 credentials;
+- a later live call reached `CONNECT 9600` with 31.02% B1 EVM and one corrected
+  E carrier symbol. When the remote side ended the call, the PTY was replaced
+  and `pppd` immediately reported `Modem hangup`; it no longer consumed echoed
+  post-call LCP bytes or diagnosed a false serial-line loopback;
 - V.14 deleted-stop-bit handling recovered the character immediately before a
   shared PPP flag. Offline replay of the captured PCMA then decoded ten
   consecutive 35-byte PPP LCP Configure-Request frames, all ten with a valid
