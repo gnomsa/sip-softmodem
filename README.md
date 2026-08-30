@@ -381,7 +381,12 @@ in answer mode. It then repeats synchronization, receiver conditioning and
 rate negotiation. An earlier shortened A/B-to-C/D implementation was accepted
 by the physical peer and reached a second `S/Sbar/TRN`, but the peer did not
 subsequently send R3; that live result motivated replacing the shortcut with
-the complete procedure. This follows the retrain procedure and
+the complete procedure. A physical call with the complete implementation then
+performed four consecutive peer-initiated retrains, each traversing
+`AA`, `CC`, first receiver conditioning, R1, second receiver conditioning and
+R2/R3. The peer continued requesting retrain at R2/R3 and no carrier was
+declared, but every restart followed the full synchronization sequence rather
+than stalling or transmitting silence. This follows the retrain procedure and
 receiver-conditioning segments in
 [ITU-T V.32 section 5](https://www.itu.int/rec/T-REC-V.32/en). This remains an
 equaliser/carrier-training problem
