@@ -309,6 +309,10 @@ The following has been observed on successful calls:
 - the PTY reports `CONNECT 9600`;
 - fractional matched-filter interpolation makes all ten B1 timing phases real
   sampling phases rather than nearest-sample aliases;
+- B1 acquisition jointly searches a sequence-boundary offset of minus eight
+  through plus eight symbols as well as timing and differential state. On a
+  saved physical run it selected minus one symbol, reduced replay EVM from
+  31.85% to 27.44%, and retained all ten valid PPP frames;
 - joint timing and four-state differential acquisition reduced B1 EVM from
   94.80% to 20.90% on a clean successful run;
 - the E detector can reconstruct the exact standard E word, scrambler state
@@ -373,8 +377,9 @@ v1 or Linux cooked v2 encapsulation. It selects RTP/PCMA payload type 8 by UDP
 destination port and reports packet count, sequence gaps and non-160 timestamp
 steps. `v32_pcma_replay` feeds the raw payload through the same calling-side
 standard V.32bis receiver used by the service and reports start-up state, rate,
-B1 timing/differential selection, acquisition status, retrain state, EVM and
-decoded byte count. Capture files and extracted payloads can contain private
+B1 timing/differential/alignment selection, acquisition status, retrain state,
+raw carrier correlation, EVM and decoded byte count. Capture files and
+extracted payloads can contain private
 telephone and network metadata and should remain outside the repository.
 `ppp_fcs_check` removes RFC 1662 escaping and counts frames whose received
 CRC-16 has the standard `0xf0b8` good residue.

@@ -326,9 +326,10 @@ static void *channel_main(void *opaque) {
                 fprintf(stderr,"V.32bis E accepted after %u words, corrected carrier symbols %u\n",
                         modem32std.physical.e_rx.words,
                         modem32std.physical.e_rx.corrected_symbols);
-                fprintf(stderr,"V.32bis B1 timing phase %d/10 differential %u tail %u + handoff 4\n",
+                fprintf(stderr,"V.32bis B1 timing phase %d/10 differential %u alignment %+d tail %u + handoff 4\n",
                         modem32std.physical.bis_rx_selected_phase,
                         modem32std.physical.bis_rx_selected_previous,
+                        modem32std.physical.bis_rx_selected_alignment,
                         modem32std.physical.bis_rx_skipped);
                 if(!v32_log_b1)
                     fprintf(stderr,"V.32bis B1 exceeds %.0f%% EVM; requesting retrain\n",

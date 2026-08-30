@@ -20,8 +20,11 @@
 #define V32_STARTUP_SCANNERS 96
 #define V32BIS_RX_TIMING_PHASES 10
 #define V32BIS_RX_DIFFERENTIAL_STATES 4
+#define V32BIS_RX_ALIGNMENT_RADIUS 8
+#define V32BIS_RX_ALIGNMENTS (2*V32BIS_RX_ALIGNMENT_RADIUS+1)
 #define V32BIS_RX_CANDIDATES \
-    (V32BIS_RX_TIMING_PHASES*V32BIS_RX_DIFFERENTIAL_STATES)
+    (V32BIS_RX_TIMING_PHASES*V32BIS_RX_DIFFERENTIAL_STATES* \
+     V32BIS_RX_ALIGNMENTS)
 #define V32BIS_RX_MAX_B1_EVM 0.60
 
 struct v32_startup_scanner {
@@ -79,6 +82,7 @@ struct v32_session {
     unsigned bis_rx_candidate_seen[V32BIS_RX_TIMING_PHASES];
     unsigned bis_rx_candidate_target;
     int bis_rx_candidate_active,bis_rx_selected_phase;
+    int bis_rx_selected_alignment;
     int bis_rx_acquisition_complete,bis_rx_acquisition_ok;
     unsigned bis_rx_selected_previous;
     unsigned startup_transition_symbols, startup_timer_symbols;

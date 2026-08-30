@@ -60,16 +60,25 @@ int main(int argc,char **argv)
     fclose(input);
     double evm=session.bis_rx_eq.power>0.0?
         100.0*sqrt(session.bis_rx_eq.error/session.bis_rx_eq.power):0.0;
+    double correlations=session.bis_rx_eq.phase_count>1?
+        (double)(session.bis_rx_eq.phase_count-1):1.0;
+    double carrier_confidence=hypot(
+        session.bis_rx_eq.carrier_correlation_i,
+        session.bis_rx_eq.carrier_correlation_q)/correlations;
+    double carrier_offset=atan2(
+        session.bis_rx_eq.carrier_correlation_q,
+        session.bis_rx_eq.carrier_correlation_i)*2400.0/(2.0*M_PI);
     fprintf(stdout,
         "start=%u blocks=%zu phase=%s rate=%d bis=%d E=%d connected=%d "
-        "mark=%u/%u skip=%u timing=%d previous=%u acquisition=%d/%d "
-        "retrain=%d EVM=%.2f%% bytes=%zu\n",
+        "mark=%u/%u skip=%u timing=%d previous=%u alignment=%+d acquisition=%d/%d "
+        "retrain=%d EVM=%.2f%% carrier=%+.3fHz/%.3f bytes=%zu\n",
         start,blocks,v32_startup_phase_name(session.startup.phase),
         v32_session_rate(&session),session.startup.bis_selected,
         session.remote_e,v32_session_connected(&session),session.tx_marking,
         session.rx_marking,session.bis_rx_skipped,
         session.bis_rx_selected_phase,session.bis_rx_selected_previous,
+        session.bis_rx_selected_alignment,
         session.bis_rx_acquisition_complete,session.bis_rx_acquisition_ok,
-        session.retrain.state,evm,total);
+        session.retrain.state,evm,carrier_offset,carrier_confidence,total);
     return 0;
 }

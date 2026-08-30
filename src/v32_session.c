@@ -52,6 +52,7 @@ static void media_init(struct v32_session *s,enum v32_std_role role,
     memset(s->bis_rx_candidate_seen,0,sizeof s->bis_rx_candidate_seen);
     s->bis_rx_candidate_target=0;s->bis_rx_candidate_active=0;
     s->bis_rx_selected_phase=-1;s->bis_rx_selected_previous=0;
+    s->bis_rx_selected_alignment=0;
     s->bis_rx_acquisition_complete=s->bis_rx_acquisition_ok=0;
     v32_line_init(&s->line);v32_line_init(&s->retrain_monitor);
     v32_qam_init(&s->qam);v32_training_init(&s->training,role);
@@ -436,6 +437,7 @@ static void begin_data(struct v32_session *s)
         }
         memset(s->bis_rx_candidate_eq,0,sizeof s->bis_rx_candidate_eq);
         s->bis_rx_candidate_active=1;s->bis_rx_selected_phase=-1;
+        s->bis_rx_selected_alignment=0;
         s->bis_rx_selected_previous=s->bis_data.rx_previous&3u;
         s->rx_data_ready=1;
         return;
@@ -652,14 +654,22 @@ static void receive_bis_timing_candidates(struct v32_session *s,
         struct v32bis_sample points[128];
         size_t n=v32bis_qam_read(qam,points,remaining);
         for(size_t i=0;i<n;i++){
-            for(unsigned previous=0;
-                previous<V32BIS_RX_DIFFERENTIAL_STATES;previous++){
-                unsigned candidate=
-                    previous*V32BIS_RX_TIMING_PHASES+phase;
-                struct v32bis_sample output;
-                (void)equalize_bis_point(&s->bis_rx_candidate_eq[candidate],
-                    points[i],s->bis_rx_candidate_expected[previous][seen],1,
-                    s->startup.selected_rate,&output);
+            for(unsigned alignment=0;alignment<V32BIS_RX_ALIGNMENTS;
+                alignment++){
+                int expected=(int)seen+(int)alignment-
+                             V32BIS_RX_ALIGNMENT_RADIUS;
+                if(expected<0||expected>=128)continue;
+                for(unsigned previous=0;
+                    previous<V32BIS_RX_DIFFERENTIAL_STATES;previous++){
+                    unsigned candidate=
+                        (alignment*V32BIS_RX_DIFFERENTIAL_STATES+previous)*
+                        V32BIS_RX_TIMING_PHASES+phase;
+                    struct v32bis_sample output;
+                    (void)equalize_bis_point(
+                        &s->bis_rx_candidate_eq[candidate],points[i],
+                        s->bis_rx_candidate_expected[previous][expected],1,
+                        s->startup.selected_rate,&output);
+                }
             }
             seen++;
         }
@@ -675,12 +685,16 @@ static void receive_bis_timing_candidates(struct v32_session *s,
         if(score<best_score){best=candidate;best_score=score;}
     }
     unsigned best_phase=best%V32BIS_RX_TIMING_PHASES;
-    unsigned best_previous=best/V32BIS_RX_TIMING_PHASES;
+    unsigned pair=best/V32BIS_RX_TIMING_PHASES;
+    unsigned best_previous=pair%V32BIS_RX_DIFFERENTIAL_STATES;
+    unsigned best_alignment=pair/V32BIS_RX_DIFFERENTIAL_STATES;
+    int alignment=(int)best_alignment-V32BIS_RX_ALIGNMENT_RADIUS;
     v32bis_qam_copy_receiver(&s->bis_qam,
                              &s->bis_rx_candidate_qam[best_phase]);
     s->bis_rx_eq=s->bis_rx_candidate_eq[best];
     s->bis_rx_selected_phase=(int)best_phase;
     s->bis_rx_selected_previous=best_previous;
+    s->bis_rx_selected_alignment=alignment;
     s->bis_rx_acquisition_complete=1;
     s->bis_rx_acquisition_ok=
         best_score<=V32BIS_RX_MAX_B1_EVM*V32BIS_RX_MAX_B1_EVM;
@@ -704,11 +718,14 @@ static void receive_bis_timing_candidates(struct v32_session *s,
     memcpy(s->bis_rx_expected,s->bis_rx_candidate_expected[best_previous],
            sizeof s->bis_rx_expected);
     s->bis_data.rx_previous=best_previous;
-    for(unsigned k=0;k<s->bis_rx_candidate_target;k++){
+    int consumed=(int)s->bis_rx_candidate_target+alignment;
+    if(consumed<0)consumed=0;
+    if(consumed>128)consumed=128;
+    for(int k=0;k<consumed;k++){
         struct v32bis_sample point=s->bis_rx_expected[k];
         (void)v32bis_data_put(&s->bis_data,point.i,point.q);
     }
-    s->rx_marking=s->bis_rx_candidate_target;
+    s->rx_marking=(unsigned)consumed;
     s->bis_rx_known=128-s->rx_marking;
     s->bis_rx_candidate_active=0;
     receive_bis_points(s);
