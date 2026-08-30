@@ -184,10 +184,27 @@ static void waiting_r3_local_timeout(void)
 
 static void standard_retrain_restarts_second_training(void)
 {
-    struct v32_session s;int16_t pcm[160];
+    struct v32_session s;struct v32_line tx;int16_t pcm[160];
     v32bis_session_init(&s,V32_STD_CALL,9600);
     v32_session_start_standard(&s);
-    s.retrain.state=V32_RETRAIN_RESTART;
+    s.startup.phase=V32_START_ONES_128;
+    s.startup.selected_rate=9600;
+    s.startup.bis_selected=1;
+    s.retrain.state=V32_RETRAIN_REQUEST;
+    v32_line_init(&tx);
+    for(unsigned block_index=0;block_index<4&&
+        s.retrain.state!=V32_RETRAIN_RESTART;block_index++){
+        enum v32_carrier_state states[48];
+        for(unsigned n=0;n<48;n++)states[n]=(n&1)?V32_STATE_D:V32_STATE_C;
+        assert(v32_line_write(&tx,states,48)==48);
+        int16_t decoded[160];uint8_t law[160];
+        v32_line_generate(&tx,pcm,160);
+        pcma_encode_buffer(pcm,law,160);
+        pcma_decode_buffer(law,decoded,160);
+        v32_session_receive(&s,decoded,160);
+    }
+    assert(s.retrain.state==V32_RETRAIN_RESTART);
+    assert(s.startup.phase==V32_START_ONES_128);
     v32_session_generate(&s,pcm,160);
     assert(s.retrain.state==V32_RETRAIN_IDLE);
     assert(s.startup.phase==V32_START_TRAIN_2);

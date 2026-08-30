@@ -865,9 +865,9 @@ static int monitor_retrain(struct v32_session *s,const int16_t *pcm,size_t count
     enum v32_carrier_state states[128];v32_line_receive(&s->retrain_monitor,pcm,count);
     size_t n;while((n=v32_line_read(&s->retrain_monitor,states,128))!=0)
         for(size_t i=0;i<n;i++)if(v32_retrain_put(&s->retrain,states[i])){
-            if(s->retrain.state==V32_RETRAIN_RESTART){
-                unsigned rates=s->startup.allowed_rates;media_init(s,s->role,rates);
-            }
+            /* RESTART is consumed by v32_session_generate().  In particular,
+             * standard sessions must enter their second S/Sbar/TRN interval;
+             * resetting media here would lose that state and fall back to R1. */
             return 1;
         }
     return s->retrain.state!=V32_RETRAIN_IDLE;
