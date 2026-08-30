@@ -506,6 +506,8 @@ static void generate_standard_bis(struct v32_session *s,int16_t *pcm,
     size_t symbols=count*2400/8000;
     for(size_t i=0;i<symbols;i++){
         if(!s->remote_r3){
+            if(s->startup_rate_symbols>=V32_R3_RETRAIN_SYMBOLS)
+                v32_retrain_request(&s->retrain);
             uint8_t state=(uint8_t)v32_rate_tx_next(&s->rate_tx);
             (void)v32bis_qam_write_carriers(&s->bis_qam,&state,1);
             s->last_tx=(enum v32_carrier_state)state;
@@ -829,8 +831,11 @@ static int monitor_retrain(struct v32_session *s,const int16_t *pcm,size_t count
 {
     int waiting_e=s->standard_startup&&s->startup.phase==V32_START_E&&
                   !s->remote_e;
+    int waiting_r3=s->standard_startup&&
+                   (s->startup.phase==V32_START_TRAIN_2||
+                    s->startup.phase==V32_START_RATE_2)&&!s->remote_r3;
     if(!v32_session_connected(s)&&s->retrain.state==V32_RETRAIN_IDLE&&
-       !s->bis_rx_candidate_active&&!waiting_e&&
+       !s->bis_rx_candidate_active&&!waiting_e&&!waiting_r3&&
        !(s->bis_rx_acquisition_complete&&!s->bis_rx_acquisition_ok))return 0;
     enum v32_carrier_state states[128];v32_line_receive(&s->retrain_monitor,pcm,count);
     size_t n;while((n=v32_line_read(&s->retrain_monitor,states,128))!=0)
@@ -934,6 +939,7 @@ void v32_session_receive(struct v32_session *s, const int16_t *pcm, size_t count
     }
     if(s->standard_startup&&(s->startup.phase==V32_START_TRAIN_2||
                             s->startup.phase==V32_START_RATE_2)){
+        if(monitor_retrain(s,pcm,count)){s->rx_samples+=count;return;}
         startup_r3_receive(s,pcm,count);s->rx_samples+=count;return;
     }
     if(s->standard_startup&&s->startup.phase==V32_START_E&&

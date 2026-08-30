@@ -137,6 +137,51 @@ static void waiting_e_retrain_arbitration(int remote_request)
            (remote_request?V32_RETRAIN_ACK:V32_RETRAIN_REQUEST));
 }
 
+static void waiting_r3_remote_retrain(void)
+{
+    struct v32_session s;
+    struct v32_line tx;
+    struct v32_retrain remote;
+    v32bis_session_init(&s,V32_STD_CALL,9600);
+    v32_session_start_standard(&s);
+    s.startup.phase=V32_START_RATE_2;
+    s.startup.selected_rate=9600;
+    s.startup.bis_selected=1;
+    s.startup_scanner_selected=0;
+    v32_line_init(&tx);
+    v32_retrain_init(&remote);
+    v32_retrain_request(&remote);
+    for(unsigned block_index=0;block_index<12&&
+        s.retrain.state==V32_RETRAIN_IDLE;block_index++){
+        enum v32_carrier_state states[48];
+        for(unsigned n=0;n<48;n++)states[n]=v32_retrain_next(&remote);
+        assert(v32_line_write(&tx,states,48)==48);
+        int16_t pcm[160],decoded[160];uint8_t law[160];
+        v32_line_generate(&tx,pcm,160);
+        pcma_encode_buffer(pcm,law,160);
+        pcma_decode_buffer(law,decoded,160);
+        v32_session_receive(&s,decoded,160);
+    }
+    assert(s.retrain.state==V32_RETRAIN_ACK);
+}
+
+static void waiting_r3_local_timeout(void)
+{
+    struct v32_session s;int16_t pcm[160];
+    v32bis_session_init(&s,V32_STD_CALL,9600);
+    v32_session_start_standard(&s);
+    s.startup.phase=V32_START_RATE_2;
+    s.startup.selected_rate=9600;
+    s.startup.bis_selected=1;
+    s.startup.local_rate_word=v32bis_rate_word(V32_RATE_9600,1);
+    v32_rate_tx_init(&s.rate_tx,V32_STD_CALL,s.startup.local_rate_word,
+                     V32_STATE_A);
+    s.rate_tx_ready=1;
+    s.startup_rate_symbols=V32_R3_RETRAIN_SYMBOLS;
+    v32_session_generate(&s,pcm,160);
+    assert(s.retrain.state==V32_RETRAIN_REQUEST);
+}
+
 int main(void)
 {
     run(0, 4800);
@@ -147,5 +192,7 @@ int main(void)
     rejected_b1_retrain_arbitration(1);
     waiting_e_retrain_arbitration(0);
     waiting_e_retrain_arbitration(1);
+    waiting_r3_remote_retrain();
+    waiting_r3_local_timeout();
     return 0;
 }

@@ -371,7 +371,10 @@ A/B detector runs while waiting for remote E. If neither E nor A/B arrives
 within 512 candidate words (about 1.7 seconds), the modem requests retraining
 instead of remaining in E until the SIP call times out. Retrain state, A/B and
 C/D counters, E-word count and the B1 arbitration timer are included in the
-service log. This
+service log. Waiting for remote R3 is bounded as well: the modem recognises an
+A/B request during second training and initiates its own retrain after 7200
+rate symbols (3 seconds) without R3. This avoids the previously observed
+27-second R2/R3 stall. This
 remains an equaliser/carrier-training problem
 rather than a SIP or packet-loss problem. For meaningful measurements, avoid
 simultaneous disk/network-heavy jobs, reject runs containing RTP gaps, and
