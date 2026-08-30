@@ -6,3 +6,5 @@ __pycache__/
 /tests/dsp_link
 /tests/test_*
 !/tests/test_*.c
+/tools/pcap_pcma_extract
+/tools/v32_pcma_replay

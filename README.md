@@ -332,6 +332,27 @@ rather than a SIP or packet-loss problem. For meaningful measurements, avoid
 simultaneous disk/network-heavy jobs, reject runs containing RTP gaps, and
 record B1 EVM alongside data-layer FCS results.
 
+### Offline PCMA replay
+
+Two optional diagnostic tools make a physical call repeatable without placing
+another call. They are not built by the default target:
+
+```sh
+make tools/pcap_pcma_extract tools/v32_pcma_replay
+editcap -F pcap capture.pcapng capture.pcap
+tools/pcap_pcma_extract capture.pcap 10000 inbound.pcma
+tools/v32_pcma_replay inbound.pcma decoded.bin 330 9600
+```
+
+`pcap_pcma_extract` accepts classic pcap with Ethernet, raw IPv4, Linux cooked
+v1 or Linux cooked v2 encapsulation. It selects RTP/PCMA payload type 8 by UDP
+destination port and reports packet count, sequence gaps and non-160 timestamp
+steps. `v32_pcma_replay` feeds the raw payload through the same calling-side
+standard V.32bis receiver used by the service and reports start-up state, rate,
+B1 timing/differential selection, acquisition status, retrain state, EVM and
+decoded byte count. Capture files and extracted payloads can contain private
+telephone and network metadata and should remain outside the repository.
+
 ## Install as a service
 
 ```sh
