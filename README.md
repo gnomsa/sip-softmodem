@@ -377,9 +377,14 @@ rate symbols (3 seconds) without R3. This avoids the previously observed
 27-second R2/R3 stall. After the C/D acknowledgement, a standard session
 restarts at the second `S/Sbar/TRN` receiver-conditioning sequence and then
 returns to rate negotiation; it no longer resets to R1 while transmitting
-silence. This follows the retrain procedure and receiver-conditioning segments
-in [ITU-T V.32 section 5](https://www.itu.int/rec/T-REC-V.32/en). This
-remains an equaliser/carrier-training problem
+silence. A live physical CSD call confirmed this receive-side path: after a
+rejected 106.26% EVM B1 acquisition, the peer acknowledged the local retrain,
+the modem entered the second `S/Sbar/TRN` interval and proceeded to R2/R3.
+That attempt did not receive the peer's subsequent R3 and therefore correctly
+did not report `CONNECT`. This follows the retrain procedure and
+receiver-conditioning segments in
+[ITU-T V.32 section 5](https://www.itu.int/rec/T-REC-V.32/en). This remains an
+equaliser/carrier-training problem
 rather than a SIP or packet-loss problem. For meaningful measurements, avoid
 simultaneous disk/network-heavy jobs, reject runs containing RTP gaps, and
 record B1 EVM alongside data-layer FCS results.
