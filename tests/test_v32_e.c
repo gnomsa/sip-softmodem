@@ -85,6 +85,33 @@ static void check_single_symbol_recovery(enum v32_std_role role)
     assert(!found);
 }
 
+static void check_late_recovery_rejected(enum v32_std_role role)
+{
+    struct v32_rate_tx rate_tx,e_tx;
+    struct v32_rate_rx rate_rx;
+    struct v32_e_rx e_rx;
+    uint16_t rate_word=v32bis_rate_word(V32_RATE_9600,1),got=0;
+    uint16_t e_word=v32bis_e_word(9600,1);
+    enum v32_carrier_state state=V32_STATE_A,e_states[8];
+    v32_rate_tx_init(&rate_tx,role,rate_word,state);
+    v32_rate_rx_init(&rate_rx,role,state);
+    for(unsigned n=0;n<32;n++){
+        state=v32_rate_tx_next(&rate_tx);
+        (void)v32_rate_rx_put(&rate_rx,state,&got);
+    }
+    assert(rate_rx.detected&&got==rate_word);
+    v32_e_rx_continue(&e_rx,&rate_rx);
+    v32_e_rx_expect(&e_rx,e_word);
+    v32_rate_tx_continue(&e_tx,&rate_tx,e_word);
+    for(unsigned n=0;n<8;n++)e_states[n]=v32_rate_tx_next(&e_tx);
+    e_states[3]=(enum v32_carrier_state)((e_states[3]+1)&3);
+    e_rx.words=V32_E_MAX_CORRECTION_WORDS;
+    int found=0,rate=0,trellis=0;
+    for(unsigned n=0;n<8;n++)
+        if(v32_e_rx_put(&e_rx,e_states[n],&rate,&trellis))found=1;
+    assert(!found&&e_rx.corrected_symbols==0);
+}
+
 int main(void)
 {
     check(V32_STD_CALL, 4800); check(V32_STD_CALL, 9600);
@@ -93,6 +120,8 @@ int main(void)
     check_rate_to_e_continuity(V32_STD_ANSWER,9600);
     check_single_symbol_recovery(V32_STD_CALL);
     check_single_symbol_recovery(V32_STD_ANSWER);
+    check_late_recovery_rejected(V32_STD_CALL);
+    check_late_recovery_rejected(V32_STD_ANSWER);
     puts("V.32 E words: 4800/9600, GPC/GPA through PCMA pass");
     return 0;
 }

@@ -2,6 +2,11 @@
 #define SIP_SOFTMODEM_V32_E_H
 #include "v32_rate.h"
 
+/* One-symbol reconstruction is useful around the expected R3-to-E
+ * transition, but becomes a likely false positive if it is left enabled
+ * indefinitely while arbitrary user data is examined. */
+#define V32_E_MAX_CORRECTION_WORDS 256u
+
 struct v32_e_rx {
     struct v32_std_scrambler descr;
     struct v32_std_scrambler word_start_descr;

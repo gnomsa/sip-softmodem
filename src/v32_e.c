@@ -71,7 +71,7 @@ int v32_e_rx_put(struct v32_e_rx *r, enum v32_carrier_state state,
     else r->repeats = valid ? 1 : 0;
     r->last = r->word; r->word = 0; r->bits = 0;r->observed_count=0;
     /* V.32 5.3.2 defines E as one, and only one, 16-bit sequence. */
-    if(!valid&&r->expected_ready){
+    if(!valid&&r->expected_ready&&r->words<=V32_E_MAX_CORRECTION_WORDS){
         struct v32_std_scrambler clean_descr;unsigned clean_previous;
         unsigned errors=expected_symbol_errors(r,&clean_descr,&clean_previous);
         if(errors<=1&&v32bis_e_decode(r->expected,&decoded_rate,

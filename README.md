@@ -316,6 +316,10 @@ The following has been observed on successful calls:
   incorrectly. On a later gap-free capture this moved E detection about 21
   seconds earlier, reduced the following B1 EVM from 107.68% to 19.36%, and
   recovered seven consecutive PPP frames with valid FCS;
+- one-symbol E reconstruction is limited to the first 256 candidate words
+  after R3. Exact E remains detectable later, but an approximate match is not
+  allowed to occur indefinitely in arbitrary data; a rejected physical run
+  had previously produced such a false match only after 718 words;
 - a live call after installing that recovery reached `CONNECT 9600` with an
   uncorrected exact E word and 31.85% B1 EVM. Its 2076 inbound RTP packets had
   no sequence gaps, and all ten received 35-byte PPP/LCP frames had valid FCS;
