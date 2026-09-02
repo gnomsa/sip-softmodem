@@ -507,8 +507,15 @@ static void generate_standard_bis(struct v32_session *s,int16_t *pcm,
         (void)v32bis_qam_init(&s->bis_qam,s->startup.selected_rate);
         v32bis_qam_set_pulse_shaped(&s->bis_qam,1);
         s->bis_qam.tx_samples=s->line.tx_samples;
-        s->bis_qam.shaped_loaded=(uint64_t)floor(
-            (double)s->bis_qam.tx_samples*2400.0/8000.0);
+        /* Keep the RRC convolution continuous when the standard four-state
+         * training/rate stream hands over to the V.32bis mapper.  Merely
+         * copying the sample cursor leaves the preceding eight symbols as
+         * zeros and corrupts the first R2 word while its scrambler advances. */
+        memcpy(s->bis_qam.shaped_i,s->line.shaped_i,
+               sizeof s->bis_qam.shaped_i);
+        memcpy(s->bis_qam.shaped_q,s->line.shaped_q,
+               sizeof s->bis_qam.shaped_q);
+        s->bis_qam.shaped_loaded=s->line.shaped_loaded;
         s->bis_qam_ready=1;
     }
     size_t symbols=count*2400/8000;

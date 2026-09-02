@@ -74,6 +74,29 @@ static void standard_retrain_preempts_bis_data(void)
     assert(s.tx_symbols==48);
 }
 
+static void standard_bis_handoff_is_continuous(void)
+{
+    struct v32_session s;int16_t pcm[160];
+    v32bis_session_init(&s,V32_STD_CALL,9600);
+    v32_session_start_standard(&s);
+    s.startup.phase=V32_START_TRAIN_2;
+    s.startup.selected_rate=9600;
+    s.startup.bis_selected=1;
+    s.startup.local_rate_word=v32bis_rate_word(
+        V32_RATE_4800|V32_RATE_7200|V32_RATE_9600,1);
+    for(unsigned n=0;n<1536;n++)(void)v32_training_next(&s.training);
+    s.startup_training_symbols=s.tx_symbols=1536;
+    v32_session_generate(&s,pcm,160);
+    assert(s.startup.phase==V32_START_RATE_2);
+    assert(!s.bis_qam_ready);
+    v32_session_generate(&s,pcm,160);
+    assert(s.bis_qam_ready);
+    long leading_energy=0;
+    for(unsigned n=0;n<16;n++)
+        leading_energy+=pcm[n]>=0?pcm[n]:-(long)pcm[n];
+    assert(leading_energy>10000);
+}
+
 static void rejected_b1_retrain_arbitration(int remote_request)
 {
     struct v32_session s;
@@ -237,6 +260,7 @@ int main(void)
     run(1, 9600);
     run_bis(7200);run_bis(9600);run_bis(12000);run_bis(14400);
     standard_retrain_preempts_bis_data();
+    standard_bis_handoff_is_continuous();
     rejected_b1_retrain_arbitration(0);
     rejected_b1_retrain_arbitration(1);
     waiting_e_retrain_arbitration(0);
