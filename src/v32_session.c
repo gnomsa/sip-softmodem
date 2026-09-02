@@ -854,11 +854,8 @@ static int monitor_retrain(struct v32_session *s,const int16_t *pcm,size_t count
 {
     int waiting_e=s->standard_startup&&s->startup.phase==V32_START_E&&
                   !s->remote_e;
-    int waiting_r3=s->standard_startup&&
-                   (s->startup.phase==V32_START_TRAIN_2||
-                    s->startup.phase==V32_START_RATE_2)&&!s->remote_r3;
     if(!v32_session_connected(s)&&s->retrain.state==V32_RETRAIN_IDLE&&
-       !s->bis_rx_candidate_active&&!waiting_e&&!waiting_r3&&
+       !s->bis_rx_candidate_active&&!waiting_e&&
        !(s->bis_rx_acquisition_complete&&!s->bis_rx_acquisition_ok))return 0;
     if(s->standard_startup){
         const double frequencies[3]={600.0,1800.0,3000.0};
@@ -986,7 +983,11 @@ void v32_session_receive(struct v32_session *s, const int16_t *pcm, size_t count
     }
     if(s->standard_startup&&(s->startup.phase==V32_START_TRAIN_2||
                             s->startup.phase==V32_START_RATE_2)){
-        if(monitor_retrain(s,pcm,count)){s->rx_samples+=count;return;}
+        /* The answer modem's second S/Sbar/TRN occupies about 0.65 s here
+         * and legitimately contains strong periodic components.  Feeding it
+         * to the generic retrain-tone detector can restart at the exact point
+         * where R3 should begin.  Let the training/rate scanners own this
+         * interval; the bounded R3 timer requests retrain if they fail. */
         startup_r3_receive(s,pcm,count);s->rx_samples+=count;return;
     }
     if(s->standard_startup&&s->startup.phase==V32_START_E&&
