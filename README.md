@@ -405,7 +405,15 @@ an in-data retrain; the same SIP/data session completed R3, E and B1 again at
 30.32% EVM, after which further valid LCP requests and replies crossed the
 link. The eventual SIP disconnect produced an immediate `Modem hangup` in
 `pppd`. This confirms bidirectional PPP framing and transparent recovery of
-the data path across a physical retrain. This follows the retrain procedure and
+the data path across a physical retrain. A later authenticated run completed
+both CHAP-MD5/PAP exchange and IPCP, accepted the provider-assigned public
+local and peer IPv4 addresses, and brought `ppp0` to `UP,LOWER_UP` without
+installing a default route. The interface remained up for about two minutes.
+Packets were transmitted through it, but neither the immediate peer nor an
+external address answered ICMP; the link ended before a TCP test could be
+completed. End-to-end routed IP connectivity therefore remains unconfirmed.
+No authentication secret is stored in this repository. This follows the
+retrain procedure and
 receiver-conditioning segments in
 [ITU-T V.32 section 5](https://www.itu.int/rec/T-REC-V.32/en). This remains an
 equaliser/carrier-training problem
