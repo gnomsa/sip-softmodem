@@ -373,20 +373,31 @@ within 512 candidate words (about 1.7 seconds), the modem requests retraining
 instead of remaining in E until the SIP call times out. Retrain state, A/B and
 C/D counters, E-word count and the B1 arbitration timer are included in the
 service log. Waiting for remote R3 is bounded as well: the modem recognises an
-incoming trigger during second training and initiates its own retrain after
-7200 rate symbols (3 seconds) without R3. This avoids the previously observed
-27-second R2/R3 stall. A standard retrain now returns to the role-specific
+R3 or initiates its own retrain after 7200 rate symbols (3 seconds) without
+one. The expected second receiver-conditioning signal is handled exclusively
+by the training/rate scanners: its periodic S/Sbar/TRN content is not passed
+to the generic in-data retrain-tone detector. This avoids both the previously
+observed 27-second R2/R3 stall and a false retrain at about 0.60 seconds. A
+standard retrain now returns to the role-specific
 start-up point: repeated carrier state A (AA) in call mode, or alternating A/C
 in answer mode. It then repeats synchronization, receiver conditioning and
 rate negotiation. An earlier shortened A/B-to-C/D implementation was accepted
 by the physical peer and reached a second `S/Sbar/TRN`, but the peer did not
 subsequently send R3; that live result motivated replacing the shortcut with
 the complete procedure. A physical call with the complete implementation then
-performed four consecutive peer-initiated retrains, each traversing
+appeared to perform four consecutive peer-initiated retrains, each traversing
 `AA`, `CC`, first receiver conditioning, R1, second receiver conditioning and
-R2/R3. The peer continued requesting retrain at R2/R3 and no carrier was
-declared, but every restart followed the full synchronization sequence rather
-than stalling or transmitting silence. This follows the retrain procedure and
+R2/R3. Offline timing showed that each restart occurred exactly as the peer's
+expected second receiver conditioning ended; the general tone detector had
+misclassified that training rather than receiving a new retrain request.
+
+The TRN-to-R2 transmitter handoff now also preserves the eight-symbol RRC
+history and continues the TRN scrambler instead of resetting it. In the first
+live call after fixing the R3 arbitration, the physical modem proceeded to E,
+accepted B1 at 30.77% EVM, reported `CONNECT 9600` and delivered user bytes for
+about nine seconds. It then requested a genuine in-data retrain; that retrain
+completed through the next R2/R3, where the peer did not return R3 before the
+call ended. This follows the retrain procedure and
 receiver-conditioning segments in
 [ITU-T V.32 section 5](https://www.itu.int/rec/T-REC-V.32/en). This remains an
 equaliser/carrier-training problem
