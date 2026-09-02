@@ -86,9 +86,17 @@ static void standard_bis_handoff_is_continuous(void)
         V32_RATE_4800|V32_RATE_7200|V32_RATE_9600,1);
     for(unsigned n=0;n<1536;n++)(void)v32_training_next(&s.training);
     s.startup_training_symbols=s.tx_symbols=1536;
+    struct v32_training expected_training=s.training;
+    for(unsigned n=0;n<16;n++)(void)v32_training_next(&expected_training);
+    struct v32_rate_tx expected_rate;
+    v32_rate_tx_init(&expected_rate,V32_STD_CALL,
+                     s.startup.local_rate_word,V32_STATE_A);
+    expected_rate.scr=expected_training.scrambler;
+    for(unsigned n=0;n<32;n++)(void)v32_rate_tx_next(&expected_rate);
     v32_session_generate(&s,pcm,160);
     assert(s.startup.phase==V32_START_RATE_2);
     assert(!s.bis_qam_ready);
+    assert(s.rate_tx.scr.history==expected_rate.scr.history);
     v32_session_generate(&s,pcm,160);
     assert(s.bis_qam_ready);
     long leading_energy=0;

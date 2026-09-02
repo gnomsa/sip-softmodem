@@ -356,6 +356,9 @@ static void queue_standard_training(struct v32_session *s,size_t count)
                     s->startup_rate_symbols=0;
                     v32_rate_tx_init(&s->rate_tx,s->role,
                                      s->startup.local_rate_word,s->last_tx);
+                    /* In start-up/retrain the rate signal continues the TRN
+                     * scrambler.  Only rate renegotiation resets it. */
+                    s->rate_tx.scr=s->training.scrambler;
                     s->rate_tx_ready=1;
                 }
                 if(s->startup.bis_selected&&!s->remote_r3&&
@@ -370,8 +373,8 @@ static void queue_standard_training(struct v32_session *s,size_t count)
                             s->startup.selected_rate=v32_highest_rate(lower);
                             s->startup.local_rate_word=
                                 v32bis_rate_word(lower,1);
-                            v32_rate_tx_init(&s->rate_tx,s->role,
-                                s->startup.local_rate_word,s->last_tx);
+                            v32_rate_tx_continue(&s->rate_tx,&s->rate_tx,
+                                s->startup.local_rate_word);
                             s->startup_rate_symbols=0;
                         }
                     }
