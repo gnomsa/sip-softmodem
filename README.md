@@ -205,6 +205,21 @@ sudo pppd /run/sip-softmodem/ttyMODEM0 115200 local passive noauth \
   10.77.0.1:10.77.0.2 nodetach debug
 ```
 
+For an authenticated outbound PPP client, `tools/ppp-dial` accepts the
+provider-assigned local and peer addresses without changing the machine's
+default route or DNS. It uses pppd's `passwordfd` plugin so the password is not
+placed in the process argument list or debug log:
+
+```sh
+sudo env \
+  SOFTMODEM_PPP_USER='provider-user' \
+  SOFTMODEM_PPP_PASSWORD='provider-password' \
+  tools/ppp-dial +420123456789
+```
+
+Set `SOFTMODEM_PPP_TTY` to select another modem channel. Credentials are read
+only from the launch environment and are not stored by the script.
+
 ## Configuration
 
 All settings are environment variables. See

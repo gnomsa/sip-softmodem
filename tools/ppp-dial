@@ -1,0 +1,37 @@
+#!/bin/sh
+set -eu
+
+number=${1-}
+case "$number" in
+    +*) digits=${number#+} ;;
+    *)  digits=$number ;;
+esac
+case "$digits" in
+    ''|*[!0-9]*)
+        echo "usage: SOFTMODEM_PPP_USER=... SOFTMODEM_PPP_PASSWORD=... $0 NUMBER" >&2
+        exit 2
+        ;;
+esac
+
+: "${SOFTMODEM_PPP_USER:?set SOFTMODEM_PPP_USER}"
+: "${SOFTMODEM_PPP_PASSWORD:?set SOFTMODEM_PPP_PASSWORD}"
+
+tty=${SOFTMODEM_PPP_TTY:-/run/sip-softmodem/ttyMODEM0}
+user=$SOFTMODEM_PPP_USER
+password=$SOFTMODEM_PPP_PASSWORD
+unset SOFTMODEM_PPP_PASSWORD
+
+chat_command="/usr/sbin/chat -v -t 90 ABORT 'NO CARRIER' '' ATDT${number} CONNECT ''"
+
+# passwordfd keeps the password out of pppd's argv and debug output.  This
+# profile deliberately accepts provider addresses but does not install a
+# default route or modify the host DNS configuration.
+printf '%s' "$password" | /usr/sbin/pppd \
+    "$tty" 115200 \
+    local passive noauth \
+    user "$user" \
+    plugin passwordfd.so passwordfd 0 hide-password \
+    noipdefault ipcp-accept-local ipcp-accept-remote \
+    noccp noipv6 \
+    nodetach debug \
+    connect "$chat_command"
