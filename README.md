@@ -397,7 +397,15 @@ live call after fixing the R3 arbitration, the physical modem proceeded to E,
 accepted B1 at 30.77% EVM, reported `CONNECT 9600` and delivered user bytes for
 about nine seconds. It then requested a genuine in-data retrain; that retrain
 completed through the next R2/R3, where the peer did not return R3 before the
-call ended. This follows the retrain procedure and
+call ended. A following live `pppd` run established at 9600 bit/s with 26.02%
+B1 EVM, received valid peer LCP Configure-Requests carrying CHAP-MD5, magic,
+asyncmap and MRRU options, and returned Configure-Reject for MRRU. The peer
+received those replies and advanced its request identifiers. It then requested
+an in-data retrain; the same SIP/data session completed R3, E and B1 again at
+30.32% EVM, after which further valid LCP requests and replies crossed the
+link. The eventual SIP disconnect produced an immediate `Modem hangup` in
+`pppd`. This confirms bidirectional PPP framing and transparent recovery of
+the data path across a physical retrain. This follows the retrain procedure and
 receiver-conditioning segments in
 [ITU-T V.32 section 5](https://www.itu.int/rec/T-REC-V.32/en). This remains an
 equaliser/carrier-training problem
